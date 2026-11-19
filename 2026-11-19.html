@@ -486,12 +486,12 @@ kubectl version --short</code></pre>
       q: "etcdctl snapshot restore /opt/backup/etcd.db --data-dir=/var/lib/etcd-restore 를 실행했다. etcd가 복구된 데이터를 실제로 사용하게 하려면 다음에 무엇을 해야 하나?",
       code: "",
       opts: [
-        { t: "etcd 정적 파드 매니페스트의 --data-dir 값과 해당 hostPath 볼륨 경로를 모두 /var/lib/etcd-restore 로 바꾼다" },
         { t: "systemctl restart etcd 로 etcd 서비스를 재시작한다" },
         { t: "kubectl edit pod -n kube-system etcd-controlplane 으로 파드를 수정한다" },
+        { t: "etcd 정적 파드 매니페스트의 --data-dir 값과 해당 hostPath 볼륨 경로를 모두 /var/lib/etcd-restore 로 바꾼다" },
         { t: "kubeadm init --force 로 클러스터를 다시 만든다" }
       ],
-      answer: 0,
+      answer: 2,
       why: "etcd는 kubelet이 /etc/kubernetes/manifests 를 감시해 띄우는 정적 파드라서 Kubernetes API로는 수정할 수 없습니다(kubectl edit 불가). 매니페스트를 직접 편집해야 하고, --data-dir 만 바꾸고 volumes 의 hostPath.path 를 그대로 두면 컨테이너가 옛 디렉터리를 마운트해 복구가 반영되지 않습니다. 시스템 서비스가 아니므로 systemctl restart etcd 도 없습니다.",
       whyCode:
         "sudo mv /etc/kubernetes/manifests/etcd.yaml /tmp/etcd.yaml.bak\n" +
@@ -506,12 +506,12 @@ kubectl version --short</code></pre>
       q: "kubeadm upgrade apply 로 컨트롤 플레인 업그레이드를 이미 마쳤다. 워커 노드에서 실행할 kubeadm 명령은?",
       code: "",
       opts: [
-        { t: "kubeadm upgrade node" },
         { t: "kubeadm upgrade apply v1.31.4" },
+        { t: "kubeadm upgrade node" },
         { t: "kubeadm upgrade plan" },
         { t: "kubeadm join --upgrade" }
       ],
-      answer: 0,
+      answer: 1,
       why: "kubeadm upgrade apply 는 첫 컨트롤 플레인 노드에서만 씁니다. 추가 컨트롤 플레인과 모든 워커 노드는 kubeadm upgrade node 입니다. plan 은 현재 상태와 올라갈 수 있는 버전을 보여 주는 확인용으로 클러스터를 바꾸지 않습니다. 이어서 kubelet·kubectl 패키지를 같은 버전으로 올리고 systemctl daemon-reload·restart kubelet, 마지막에 kubectl uncordon 입니다.",
       whyCode:
         "kubectl drain node1 --ignore-daemonsets --delete-emptydir-data\n" +
@@ -526,12 +526,12 @@ kubectl version --short</code></pre>
       q: "현재 v1.29 클러스터를 v1.31 로 올리려 한다. kubeadm 기준으로 올바른 방법은?",
       code: "",
       opts: [
-        { t: "v1.30 으로 먼저 올린 뒤, 그다음 v1.31 로 올린다" },
         { t: "kubeadm upgrade apply v1.31 로 한 번에 올린다" },
         { t: "kubelet 을 먼저 v1.31 로 올리고 컨트롤 플레인을 올린다" },
-        { t: "모든 노드를 drain 한 뒤 etcd 를 새로 설치한다" }
+        { t: "모든 노드를 drain 한 뒤 etcd 를 새로 설치한다" },
+        { t: "v1.30 으로 먼저 올린 뒤, 그다음 v1.31 로 올린다" }
       ],
-      answer: 0,
+      answer: 3,
       why: "kubeadm 은 마이너 버전을 건너뛰지 못합니다. v1.29 → v1.30 → v1.31 처럼 한 번에 한 마이너씩 올립니다. 순서도 정해져 있어서 컨트롤 플레인(kubeadm → kubelet)을 먼저, 그다음 워커입니다. kubelet 은 kube-apiserver 보다 높은 버전일 수 없습니다.",
       whyCode:
         "# v1.29 → v1.30\nsudo apt-get install -y kubeadm=1.30.x-1.1 && sudo kubeadm upgrade apply v1.30.x\n# v1.30 → v1.31\nsudo apt-get install -y kubeadm=1.31.4-1.1 && sudo kubeadm upgrade apply v1.31.4"
@@ -542,12 +542,12 @@ kubectl version --short</code></pre>
       q: "DaemonSet 파드와 emptyDir 를 쓰는 파드가 떠 있는 워커 노드를 업그레이드 전에 비우려 한다. 올바른 명령은?",
       code: "",
       opts: [
-        { t: "kubectl drain node1 --ignore-daemonsets --delete-emptydir-data" },
         { t: "kubectl drain node1 --force" },
         { t: "kubectl cordon node1 --ignore-daemonsets" },
+        { t: "kubectl drain node1 --ignore-daemonsets --delete-emptydir-data" },
         { t: "kubectl delete node node1" }
       ],
-      answer: 0,
+      answer: 2,
       why: "DaemonSet 이 있는 노드는 --ignore-daemonsets 없이는 drain 이 거부되고, emptyDir 를 쓰는 파드는 --delete-emptydir-data 를 줘야 지워집니다. --force 만으로는 두 조건이 해결되지 않습니다. cordon 은 새 파드 스케줄만 막고 기존 파드는 남기며, delete node 는 노드를 클러스터에서 제거합니다. 업그레이드 후 kubectl uncordon node1 로 되돌립니다.",
       whyCode: ""
     }
