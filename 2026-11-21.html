@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0f14">
+<title>Day 03 · Services &amp; Networking — NetworkPolicy / CoreDNS / Ingress·Gateway</title>
+<style>
+  :root{
+    --bg:#0b0f14; --bg-soft:#111823; --card:#151d29; --card-2:#1b2532;
+    --line:#243040; --line-soft:#1d2735;
+    --text:#e8eef7; --muted:#8fa1b8;
+    --accent:#4f9dff; --accent-2:#39d3a2; --accent-ink:#06121f;
+    --red:#ff6b6b; --red-soft:rgba(255,107,107,.12);
+    --green:#39d3a2; --green-soft:rgba(57,211,162,.12);
+    --amber:#ffc457;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
+  [hidden]{display:none !important}
+  body{
+    margin:0;
+    background:radial-gradient(1000px 460px at 50% -200px, rgba(79,157,255,.18), transparent 60%), var(--bg);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Malgun Gothic",system-ui,sans-serif;
+    font-size:16px;line-height:1.65;letter-spacing:-.01em;
+    padding:0 16px calc(48px + env(safe-area-inset-bottom));
+  }
+  a{color:var(--accent);text-decoration:none}
+  .wrap{max-width:640px;margin:0 auto}
+
+  /* 상단바 */
+  .topbar{
+    position:sticky;top:0;z-index:20;
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    margin:0 -16px 4px;padding:12px 16px;
+    background:rgba(11,15,20,.78);
+    -webkit-backdrop-filter:saturate(180%) blur(14px);backdrop-filter:saturate(180%) blur(14px);
+    border-bottom:1px solid rgba(36,48,64,.6);
+  }
+  .back{font-size:14.5px;font-weight:600;color:#c3d2e6;min-height:44px;display:flex;align-items:center;gap:4px;padding-right:8px}
+  .badge{
+    font-size:12px;font-weight:700;letter-spacing:.03em;
+    padding:6px 11px;border-radius:999px;
+    background:rgba(79,157,255,.13);color:#8ec2ff;border:1px solid rgba(79,157,255,.3);
+  }
+
+  /* 히어로 */
+  .hero{padding:20px 2px 4px}
+  .eyebrow{display:flex;align-items:center;gap:8px;margin:0;font-size:11.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--accent-2)}
+  .eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--accent-2);box-shadow:0 0 0 3px rgba(57,211,162,.18)}
+  .hero h1{margin:10px 0 6px;font-size:26px;line-height:1.3;font-weight:780;letter-spacing:-.03em}
+  .hero h1 span{display:block;font-size:15px;font-weight:600;color:#b9c9dd;letter-spacing:-.01em;margin-top:8px;line-height:1.5}
+  .metaline{display:flex;flex-wrap:wrap;gap:7px;margin-top:14px}
+  .metaline span{font-size:12px;color:#c3d2e6;background:rgba(255,255,255,.055);border:1px solid var(--line);padding:5px 10px;border-radius:999px}
+  .cta-row{display:flex;gap:10px;margin-top:18px}
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:7px;
+    min-height:54px;padding:0 18px;border-radius:14px;border:1px solid transparent;
+    font-size:15.5px;font-weight:750;font-family:inherit;letter-spacing:-.01em;
+    cursor:pointer;transition:transform .12s ease,filter .12s ease,background .15s ease;
+  }
+  .btn:active{transform:scale(.985)}
+  .btn.primary{flex:1;background:linear-gradient(180deg,#5aa7ff,#3d86e8);color:var(--accent-ink);box-shadow:0 8px 22px rgba(61,134,232,.32)}
+  .btn.ghost{background:rgba(255,255,255,.05);color:#c3d2e6;border-color:var(--line)}
+  .btn.ghost:active{background:rgba(255,255,255,.09)}
+
+  /* 섹션 공통 */
+  .sec{margin-top:34px}
+  .sec-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:12px;padding:0 2px}
+  .sec-head h2{margin:0;font-size:17px;font-weight:750;letter-spacing:-.02em}
+  .sec-head .hint{font-size:12px;color:var(--muted)}
+
+  /* 접이식 이론 */
+  details.acc{
+    background:var(--card);border:1px solid var(--line-soft);border-radius:16px;
+    margin-bottom:10px;overflow:hidden;
+  }
+  details.acc[open]{background:var(--card-2);border-color:#2a3b53}
+  details.acc summary{
+    list-style:none;cursor:pointer;
+    display:flex;align-items:center;gap:12px;
+    min-height:60px;padding:14px 16px;
+    font-size:15px;font-weight:700;letter-spacing:-.01em;
+  }
+  details.acc summary::-webkit-details-marker{display:none}
+  details.acc summary .num{
+    flex:none;width:26px;height:26px;border-radius:8px;display:grid;place-items:center;
+    font-size:12.5px;font-weight:800;background:#1e2a3a;color:#9db2cc;border:1px solid var(--line);
+  }
+  details.acc[open] summary .num{background:linear-gradient(145deg,#2f7be8,#39d3a2);color:#06121f;border-color:transparent}
+  details.acc summary .t{flex:1}
+  details.acc summary .arrow{color:#5d7590;font-size:13px;transition:transform .2s ease}
+  details.acc[open] summary .arrow{transform:rotate(180deg)}
+  .acc-body{padding:2px 16px 18px;font-size:14.5px;color:#cfdcec}
+  .acc-body p{margin:10px 0}
+  .acc-body ul{margin:10px 0;padding-left:19px}
+  .acc-body li{margin:6px 0}
+  .acc-body strong{color:#fff;font-weight:700}
+  .acc-body code{
+    font-family:var(--mono);font-size:12.8px;
+    background:rgba(120,160,220,.14);color:#a9d0ff;
+    padding:1.5px 6px;border-radius:6px;
+    overflow-wrap:anywhere;
+  }
+  .acc-body h4{margin:16px 0 6px;font-size:13px;font-weight:800;letter-spacing:.02em;color:var(--accent-2);text-transform:uppercase}
+
+  /* 코드 블록: 가로 스크롤 */
+  pre{
+    margin:10px 0;padding:13px 14px;
+    background:#0a0f16;border:1px solid #1e2a38;border-radius:12px;
+    overflow-x:auto;-webkit-overflow-scrolling:touch;
+    font-family:var(--mono);font-size:12.6px;line-height:1.7;color:#cfe4ff;
+    white-space:pre;
+  }
+  pre code{background:none;color:inherit;padding:0;font-size:inherit}
+  pre::-webkit-scrollbar{height:5px}
+  pre::-webkit-scrollbar-thumb{background:#2a3a4d;border-radius:99px}
+
+  /* 표 */
+  .tbl{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.2px}
+  .tbl th,.tbl td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+  .tbl th{background:rgba(255,255,255,.045);font-weight:700;color:#dbe7f5;white-space:nowrap}
+  .tbl td{color:#c2d1e2}
+  .tbl td code,.tbl th code{font-family:var(--mono);font-size:12px;background:rgba(120,160,220,.14);color:#a9d0ff;padding:1px 5px;border-radius:5px;overflow-wrap:anywhere}
+
+  .callout{
+    margin:12px 0;padding:12px 14px;border-radius:12px;
+    background:rgba(255,196,87,.08);border:1px solid rgba(255,196,87,.28);
+    font-size:13.4px;color:#ffe3ac;
+  }
+  .callout b{color:#ffd27e}
+
+  /* 퀴즈 */
+  .quiz-card{
+    background:var(--card);border:1px solid var(--line);border-radius:20px;
+    padding:18px 16px 20px;box-shadow:0 14px 40px rgba(0,0,0,.35);
+  }
+  .qtop{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+  .qcount{font-size:12.5px;font-weight:700;color:var(--muted);letter-spacing:.04em}
+  .qtag{font-size:11.5px;font-weight:700;color:#8ec2ff;background:rgba(79,157,255,.12);border:1px solid rgba(79,157,255,.28);padding:4px 9px;border-radius:8px}
+  .bar{height:5px;border-radius:99px;background:#1c2735;overflow:hidden;margin-bottom:18px}
+  .bar > i{display:block;height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,#4f9dff,#39d3a2);transition:width .3s ease}
+  .qtext{margin:0 0 12px;font-size:17px;line-height:1.55;font-weight:700;letter-spacing:-.02em}
+  .qtext code{font-family:var(--mono);font-size:14px;background:rgba(120,160,220,.14);color:#a9d0ff;padding:1.5px 6px;border-radius:6px;overflow-wrap:anywhere}
+  .qcard pre{margin:0 0 14px}
+
+  .opts{display:flex;flex-direction:column;gap:9px;margin-top:4px}
+  .opt{
+    display:flex;align-items:flex-start;gap:11px;width:100%;
+    min-height:58px;padding:13px 14px;border-radius:13px;
+    background:#101825;border:1.5px solid #26313f;color:var(--text);
+    font-family:inherit;font-size:14.6px;line-height:1.5;text-align:left;letter-spacing:-.01em;
+    cursor:pointer;transition:background .14s ease,border-color .14s ease,transform .1s ease;
+  }
+  .opt:active{transform:scale(.994)}
+  .opt .k{
+    flex:none;width:24px;height:24px;border-radius:7px;display:grid;place-items:center;
+    font-family:var(--mono);font-size:12px;font-weight:800;
+    background:#1c2836;color:#93a9c2;border:1px solid #2b3949;margin-top:1px;
+  }
+  .opt .txt{flex:1;min-width:0;overflow-wrap:anywhere}
+  .opt .txt code{font-family:var(--mono);font-size:12.6px;background:rgba(120,160,220,.14);color:#a9d0ff;padding:1px 5px;border-radius:5px}
+  .opt .mk{flex:none;font-size:15px;font-weight:800;margin-top:1px;opacity:0}
+
+  .opt.correct{background:var(--green-soft);border-color:rgba(57,211,162,.55)}
+  .opt.correct .k{background:rgba(57,211,162,.2);color:#7dffcf;border-color:rgba(57,211,162,.45)}
+  .opt.correct .mk{opacity:1;color:#4ff0bb}
+  .opt.wrong{background:var(--red-soft);border-color:rgba(255,107,107,.55)}
+  .opt.wrong .k{background:rgba(255,107,107,.18);color:#ffa9a9;border-color:rgba(255,107,107,.42)}
+  .opt.wrong .mk{opacity:1;color:#ff8f8f}
+  .opt.dim{opacity:.52}
+  .opts.locked .opt{cursor:default}
+  .opts.locked .opt:active{transform:none}
+
+  .explain{
+    margin-top:14px;padding:14px;border-radius:13px;
+    background:#0e1622;border:1px solid #22303f;
+    animation:fade .22s ease;
+  }
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  .verdict{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:800;margin-bottom:8px}
+  .verdict.ok{color:#4ff0bb}
+  .verdict.no{color:#ff9b9b}
+  .explain p{margin:0 0 8px;font-size:13.9px;line-height:1.72;color:#c6d5e6}
+  .explain p:last-child{margin-bottom:0}
+  .explain pre{margin:10px 0 0}
+  .explain .lbl{font-size:11.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:#7f93aa;margin:12px 0 4px}
+
+  .qfoot{margin-top:16px}
+  .next{
+    width:100%;min-height:56px;border-radius:14px;border:none;
+    background:linear-gradient(180deg,#5aa7ff,#3d86e8);color:var(--accent-ink);
+    font-family:inherit;font-size:16px;font-weight:800;letter-spacing:-.01em;cursor:pointer;
+    box-shadow:0 8px 20px rgba(61,134,232,.3);
+    transition:transform .12s ease,filter .12s ease;
+  }
+  .next:active{transform:scale(.985);filter:brightness(.95)}
+
+  /* 결과 */
+  .result{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:22px 18px;box-shadow:0 14px 40px rgba(0,0,0,.35)}
+  .ring{
+    width:132px;height:132px;border-radius:50%;margin:4px auto 14px;
+    display:grid;place-items:center;position:relative;
+    background:conic-gradient(var(--accent-2) 0deg, var(--accent-2) 0deg, #1c2735 0deg);
+    transition:background .6s ease;
+  }
+  .ring::before{content:"";position:absolute;inset:9px;border-radius:50%;background:#121a25}
+  .ring .in{position:relative;text-align:center}
+  .ring .score{display:block;font-size:33px;font-weight:800;line-height:1;letter-spacing:-.03em}
+  .ring .of{display:block;font-size:11.5px;color:var(--muted);margin-top:4px;letter-spacing:.04em}
+  .res-title{margin:0 0 6px;text-align:center;font-size:19px;font-weight:780;letter-spacing:-.02em}
+  .res-sub{margin:0;text-align:center;font-size:13.5px;color:var(--muted);line-height:1.6}
+
+  .tally{display:flex;gap:9px;margin:18px 0 4px}
+  .tally div{flex:1;text-align:center;padding:11px 8px;border-radius:12px;background:#101825;border:1px solid var(--line-soft)}
+  .tally .n{display:block;font-size:19px;font-weight:800;line-height:1.2}
+  .tally .l{display:block;font-size:11.5px;color:var(--muted);margin-top:2px}
+  .tally .n.g{color:#4ff0bb}
+  .tally .n.r{color:#ff9b9b}
+
+  .rev-head{margin:22px 0 10px;font-size:13px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#7f93aa}
+  .rev{padding:13px 14px;border-radius:13px;background:#101825;border:1px solid var(--line-soft);margin-bottom:9px}
+  .rev.no{border-color:rgba(255,107,107,.34);background:rgba(255,107,107,.055)}
+  .rev-top{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+  .rev-no{font-family:var(--mono);font-size:11.5px;font-weight:800;color:#93a9c2}
+  .mark-ok,.mark-no{font-size:11px;font-weight:800;padding:3px 8px;border-radius:7px;letter-spacing:.02em}
+  .mark-ok{color:#4ff0bb;background:rgba(57,211,162,.14);border:1px solid rgba(57,211,162,.3)}
+  .mark-no{color:#ff9b9b;background:rgba(255,107,107,.14);border:1px solid rgba(255,107,107,.32)}
+  .rev-q{margin:0 0 7px;font-size:13.6px;line-height:1.6;color:#d5e2f1;font-weight:600}
+  .rev-ans{margin:0;font-size:12.8px;color:#9fb2c8}
+  .rev-ans b{color:#e8eef7;font-weight:700}
+  .rev-why{margin:9px 0 0;padding-top:9px;border-top:1px dashed #24303f;font-size:13.2px;line-height:1.7;color:#bfd0e3}
+  .rev-why .lbl{display:block;font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:#7f93aa;margin-bottom:3px}
+
+  .actions{display:flex;flex-direction:column;gap:9px;margin-top:20px}
+  .actions .btn{width:100%;min-height:54px}
+  .btn.dark{background:#16202d;color:#c3d2e6;border:1px solid var(--line)}
+
+  footer{margin-top:36px;text-align:center;font-size:12px;color:#61758c;line-height:1.8}
+  footer a{color:#8fa1b8;text-decoration:underline;text-underline-offset:3px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <a class="back" href="./index.html">‹ 대시보드</a>
+    <span class="badge">Day 03 · 2026-11-21</span>
+  </div>
+
+  <section class="hero">
+    <p class="eyebrow"><span class="dot"></span>CKA 20% · Services &amp; Networking</p>
+    <h1>NetworkPolicy · CoreDNS · Ingress
+      <span>Service 트러블슈팅부터 policyTypes 함정, DNS 이름 해석, Ingress/Gateway 라우팅까지 — 손으로 만지는 20% 영역을 5문항으로 점검합니다.</span>
+    </h1>
+    <div class="metaline">
+      <span>이론 4분</span>
+      <span>퀴즈 5문항</span>
+      <span>단일 HTML · 오프라인 가능</span>
+    </div>
+    <div class="cta-row">
+      <a class="btn primary" href="#quiz">퀴즈 바로 시작 →</a>
+      <a class="btn ghost" href="#theory">이론 먼저</a>
+    </div>
+  </section>
+
+  <!-- ===== 이론 ===== -->
+  <section class="sec" id="theory">
+    <div class="sec-head">
+      <h2>이론 요약</h2>
+      <span class="hint">접어 두고 필요할 때 펼치기</span>
+    </div>
+
+    <details class="acc" open>
+      <summary><span class="num">1</span><span class="t">Service — ClusterIP·NodePort·EndpointSlice 진단</span><span class="arrow">▾</span></summary>
+      <div class="acc-body">
+        <p>Service는 파드 집합 앞의 <strong>가상 IP와 이름</strong>입니다. 실제 연결은 kube-proxy(iptables/IPVS·nftables)가 <code>Service IP:port</code> → <code>파드 IP:targetPort</code>로 넘깁니다. 그래서 <strong>연결이 안 될 때 어느 쪽이 끊겼는지</strong>를 Endpoints로 가릅니다.</p>
+        <table class="tbl">
+          <tr><th>type</th><th>동작</th><th>시험 포인트</th></tr>
+          <tr><td><code>ClusterIP</code></td><td>클러스터 내부 가상 IP (기본값)</td><td>가장 흔한 기본 Service</td></tr>
+          <tr><td><code>NodePort</code></td><td>모든 노드의 같은 포트로 노출</td><td><code>nodePort</code>는 <b>30000–32767</b> (지정 생략 시 자동 할당)</td></tr>
+          <tr><td><code>LoadBalancer</code></td><td>외부 LB + NodePort + ClusterIP</td><td>클라우드 없으면 <code>EXTERNAL-IP</code>가 <code>&lt;pending&gt;</code></td></tr>
+          <tr><td><code>ExternalName</code></td><td>DNS CNAME만 반환, 프록시 없음</td><td><code>type: ExternalName</code> + <code>externalName:</code></td></tr>
+          <tr><td>Headless</td><td><code>clusterIP: None</code> → 파드 IP를 A 레코드로</td><td>StatefulSet·직접 붙기(예: DB)에서 사용</td></tr>
+        </table>
+
+        <h4>port와 targetPort</h4>
+        <pre><code>spec:
+  selector:
+    app: web          # ← 이 라벨과 일치하는 파드가 백엔드
+  ports:
+  - port: 80          # Service가 노출하는 포트 (클라이언트가 부르는 번호)
+    targetPort: 8080  # 파드 컨테이너가 실제로 듣는 포트 (생략 시 port와 같음)
+    protocol: TCP</code></pre>
+
+        <h4>진단 순서 — Endpoints를 먼저 본다</h4>
+        <table class="tbl">
+          <tr><th>증상</th><th>의심</th><th>확인</th></tr>
+          <tr><td>ClusterIP 연결 refused·timeout, <code>Endpoints &lt;none&gt;</code></td><td><b>selector ↔ 파드 라벨 불일치</b>, 파드 NotReady, 다른 네임스페이스</td><td><code>kubectl get endpoints web</code>, <code>kubectl get pods --show-labels</code></td></tr>
+          <tr><td>Endpoints는 채워졌는데 연결 실패</td><td><code>targetPort</code> 오타, 앱이 <code>127.0.0.1</code>에만 바인딩, NetworkPolicy</td><td><code>kubectl exec</code>로 파드 IP:포트 직접 호출</td></tr>
+          <tr><td>NodePort로 안 붙음</td><td>노드 방화벽, <code>externalTrafficPolicy: Local</code>인데 파드가 다른 노드에 있음</td><td><code>kubectl get svc -o wide</code>, <code>ss -ltnp</code></td></tr>
+          <tr><td>이름으로는 안 되고 IP로는 됨</td><td>CoreDNS (3번 항목)</td><td><code>dig</code>, <code>kubectl -n kube-system get svc kube-dns</code></td></tr>
+        </table>
+        <pre><code>kubectl get svc web -o wide
+kubectl describe svc web | grep -A2 -E 'Selector|Endpoints'
+kubectl get endpointslices -l kubernetes.io/service-name=web -o wide
+kubectl get pods --show-labels
+kubectl run nettest --rm -it --restart=Never --image=nicolaka/netshoot \
+  -- curl -sS -m3 http://web.default.svc.cluster.local</code></pre>
+        <div class="callout"><b>가르는 기준</b> — <b>Endpoints가 비었으면 Service 정의(selector) 문제, Endpoints가 있는데 안 되면 파드·포트·정책 문제</b>입니다. EndpointSlice는 엔드포인트 컨트롤러가 만들며, <code>publishNotReadyAddresses: true</code>가 아니면 <b>Ready 파드만</b> 들어갑니다.</div>
+      </div>
+    </details>
+
+    <details class="acc">
+      <summary><span class="num">2</span><span class="t">NetworkPolicy — 기본값과 policyTypes 함정</span><span class="arrow">▾</span></summary>
+      <div class="acc-body">
+        <p>NetworkPolicy는 <strong>허용 목록(allow-list)</strong>만 표현합니다. 정책이 하나도 없는 파드는 모든 트래픽이 허용되고, 정책이 하나라도 파드를 선택하면 그 방향은 <b>기본 거부</b>로 바뀌어 명시한 규칙만 통과합니다. 거부 규칙은 따로 쓸 수 없습니다.</p>
+        <pre><code># ① 기본 전면 거부 (deny-all) — 네임스페이스의 모든 파드
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: prod
+spec:
+  podSelector: {}            # 빈 셀렉터 = 네임스페이스의 모든 파드
+  policyTypes: ["Ingress", "Egress"]
+  # ingress/egress 규칙 없음 → 양방향 전부 차단</code></pre>
+
+        <h4>policyTypes가 헷갈리는 지점</h4>
+        <table class="tbl">
+          <tr><th>작성</th><th>결과</th></tr>
+          <tr><td><code>policyTypes: ["Ingress"]</code> + <code>ingress: []</code></td><td><b>전체 Ingress 차단</b> (빈 배열 = 규칙 없음)</td></tr>
+          <tr><td><code>policyTypes: ["Ingress"]</code> + <code>ingress</code> 필드 없음</td><td>역시 <b>전체 Ingress 차단</b></td></tr>
+          <tr><td><code>ingress: [{}]</code> (빈 규칙 하나)</td><td><b>전체 허용</b> — 조건 없는 규칙</td></tr>
+          <tr><td><code>policyTypes</code> 생략</td><td>Ingress는 <b>항상</b> 포함, Egress는 <code>egress</code> 규칙이 있을 때만 포함</td></tr>
+          <tr><td><code>policyTypes</code>에 <code>Egress</code> + <code>egress: []</code></td><td><b>전체 Egress 차단 → DNS(53)까지 막혀 이름 해석 실패</b></td></tr>
+          <tr><td><code>from: [{}]</code> / <code>namespaceSelector: {}</code></td><td>모든 소스 / 모든 네임스페이스 허용</td></tr>
+        </table>
+
+        <h4>AND와 OR — 리스트 항목 vs 한 항목</h4>
+        <pre><code># OR : from 의 두 항목 중 하나만 맞으면 허용
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels: {role: frontend}        # 같은 네임스페이스의 frontend
+    - namespaceSelector:
+        matchLabels: {env: prod}             # env=prod 네임스페이스의 모든 파드
+
+# AND : 한 항목 안에 함께 쓰면 둘 다 만족해야 허용
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels: {env: prod}
+      podSelector:
+        matchLabels: {role: frontend}        # env=prod 네임스페이스 中 frontend</code></pre>
+        <ul>
+          <li><code>podSelector</code>만 → <b>정책과 같은 네임스페이스</b>의 파드</li>
+          <li><code>namespaceSelector</code>만 → 그 네임스페이스의 <b>모든</b> 파드</li>
+          <li>네임스페이스에는 <code>kubernetes.io/metadata.name: kube-system</code> 라벨이 자동으로 붙습니다(1.21+) — <code>namespaceSelector</code>에 바로 쓸 수 있습니다.</li>
+          <li>Egress로 DNS를 열 때는 <b>UDP·TCP 53 둘 다</b> 넣습니다.</li>
+        </ul>
+        <pre><code>  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: kube-system
+    ports:
+    - {protocol: UDP, port: 53}
+    - {protocol: TCP, port: 53}</code></pre>
+        <div class="callout"><b>시험 함정</b> — NetworkPolicy는 <b>CNI가 지원해야</b> 실제로 동작합니다(Calico·Cilium·Weave·kube-router O, Flannel 단독 X). 그리고 Egress를 막으면 <b>DNS도 같이 죽어</b> <code>lookup … i/o timeout</code>으로 나타납니다. "외부 통신만 막았는데 모든 게 안 된다" 싶으면 53 포트부터 확인하세요.</div>
+      </div>
+    </details>
+
+    <details class="acc">
+      <summary><span class="num">3</span><span class="t">CoreDNS — 이름 해석 경로와 검증</span><span class="arrow">▾</span></summary>
+      <div class="acc-body">
+        <p>파드의 <code>/etc/resolv.conf</code>는 kubelet이 채웁니다. <code>nameserver</code>는 <strong>CoreDNS Service의 ClusterIP</strong>이고, 그 Service 이름은 <b><code>kube-dns</code></b>, 네임스페이스는 <code>kube-system</code>입니다(구 이름이 그대로 남아 있음).</p>
+        <pre><code># 파드 안에서 보이는 resolv.conf
+search dev.svc.cluster.local svc.cluster.local cluster.local
+nameserver 10.96.0.10          # kube-dns ClusterIP
+options ndots:5</code></pre>
+        <table class="tbl">
+          <tr><th>dev 네임스페이스의 파드에서</th><th>해석되는 대상</th></tr>
+          <tr><td><code>api</code></td><td>dev 네임스페이스의 <code>api</code> 만 (search가 <code>dev.svc.cluster.local</code>을 붙임)</td></tr>
+          <tr><td><code>api.prod</code></td><td>prod 네임스페이스의 <code>api</code> (두 번째 후보 <code>api.prod.svc.cluster.local</code>)</td></tr>
+          <tr><td><code>api.prod.svc.cluster.local</code></td><td>FQDN — 항상 명확. <b>다른 네임스페이스에는 이 형태를 쓴다</b></td></tr>
+          <tr><td><code>kubernetes.default</code></td><td>API Service (검증용 표준 주소)</td></tr>
+        </table>
+        <p><code>ndots:5</code>는 점이 5개 미만인 이름을 먼저 search 목록에 붙여 시도하라는 뜻입니다. 그래서 짧은 이름은 <b>자기 네임스페이스에서만</b> 찾습니다.</p>
+
+        <h4>임시 파드로 검증하기</h4>
+        <pre><code># dig/nslookup 이 든 이미지로 바로 확인 (netshoot = dig·nslookup·curl 포함)
+kubectl run -n dev dnstest --rm -it --restart=Never \
+  --image=nicolaka/netshoot -- dig +short api.prod.svc.cluster.local
+
+# busybox 계열은 1.28 태그가 nslookup 동작이 안정적
+kubectl run dnstest --rm -it --restart=Never --image=busybox:1.28 \
+  -- nslookup kubernetes.default
+
+# CoreDNS 자체 점검
+kubectl -n kube-system get pods -l k8s-app=kube-dns -o wide
+kubectl -n kube-system logs -l k8s-app=kube-dns --tail=50
+kubectl -n kube-system get svc kube-dns          # ClusterIP 확인
+kubectl -n kube-system get cm coredns -o yaml    # Corefile: kubernetes / forward . /etc/resolv.conf</code></pre>
+        <table class="tbl">
+          <tr><th>증상</th><th>원인</th></tr>
+          <tr><td>모든 네임스페이스에서 이름 해석 실패</td><td>CoreDNS 파드 Down·CrashLoop, <code>kube-dns</code> Service 엔드포인트 없음</td></tr>
+          <tr><td>특정 네임스페이스에서만 <code>i/o timeout</code></td><td>그 네임스페이스의 <b>Egress NetworkPolicy</b>가 53을 막음</td></tr>
+          <tr><td>짧은 이름만 실패</td><td>다른 네임스페이스의 서비스를 짧은 이름으로 부름 → FQDN 사용</td></tr>
+          <tr><td>클러스터 밖 도메인만 실패</td><td>CoreDNS <code>forward</code> 대상(노드 <code>/etc/resolv.conf</code>) 문제</td></tr>
+        </table>
+        <div class="callout"><b>이름 함정</b> — CoreDNS의 Service는 <b><code>kube-dns</code></b>입니다. <code>coredns.kube-system.svc.cluster.local</code>은 <b>없는 이름</b>입니다. Deployment 이름만 <code>coredns</code>입니다.</div>
+      </div>
+    </details>
+
+    <details class="acc">
+      <summary><span class="num">4</span><span class="t">Ingress — ingressClassName · pathType</span><span class="arrow">▾</span></summary>
+      <div class="acc-body">
+        <p>Ingress는 <strong>규칙만 담은 리소스</strong>이고, 실제 프록시는 <b>Ingress 컨트롤러</b>(ingress-nginx 등)가 합니다. 컨트롤러는 <code>IngressClass</code>로 자기가 처리할 Ingress를 고릅니다.</p>
+        <ul>
+          <li><code>spec.ingressClassName: nginx</code> — 현재 표준. <code>kubectl get ingressclass</code>로 이름 확인</li>
+          <li>클래스가 없고 <b>기본 클래스</b>(<code>ingressclass.kubernetes.io/is-default-class: "true"</code>)도 없으면 <b>컨트롤러가 무시</b> → <code>ADDRESS</code>가 비고 요청은 기본 백엔드 404</li>
+          <li>annotation <code>kubernetes.io/ingress.class</code>은 레거시(deprecated) — 시험은 필드로 쓰는 게 안전</li>
+        </ul>
+        <pre><code>apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: api
+  namespace: prod
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts: ["api.example.com"]
+    secretName: api-tls
+  rules:
+  - host: api.example.com
+    http:
+      paths:
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: api-svc
+            port:
+              number: 80          # 포트 이름(port.name)으로도 지정 가능</code></pre>
+
+        <h4>pathType — 매칭 규칙</h4>
+        <table class="tbl">
+          <tr><th>pathType</th><th><code>/api</code></th><th><code>/api/</code></th><th><code>/api/users</code></th><th><code>/apiv2</code></th></tr>
+          <tr><td><code>Exact</code></td><td>O</td><td>X</td><td>X</td><td>X</td></tr>
+          <tr><td><code>Prefix</code></td><td>O</td><td>O</td><td>O</td><td>X</td></tr>
+          <tr><td><code>ImplementationSpecific</code></td><td colspan="4">컨트롤러 구현에 따름</td></tr>
+        </table>
+        <p><code>Prefix</code>는 <b>경로 요소 단위</b>로 비교하므로 <code>/api</code>가 <code>/apiv2</code>를 잡지 않습니다. <code>pathType</code>은 <b>필수</b> 필드입니다.</p>
+
+        <h4>404인가 503인가</h4>
+        <table class="tbl">
+          <tr><th>응답</th><th>의미</th></tr>
+          <tr><td>404 (컨트롤러 기본 백엔드)</td><td>host·path가 어떤 규칙에도 안 걸림 / <b>클래스 미지정으로 Ingress가 무시됨</b></td></tr>
+          <tr><td>503 Service Temporarily Unavailable</td><td>규칙은 걸렸는데 <b>백엔드 엔드포인트가 없음</b>(Service 이름·포트 오타, Ready 파드 없음)</td></tr>
+        </table>
+        <pre><code>kubectl get ingressclass
+kubectl describe ingress api -n prod
+kubectl get endpoints api-svc -n prod
+kubectl -n ingress-nginx get pods
+kubectl -n ingress-nginx logs deploy/ingress-nginx-controller --tail=50</code></pre>
+        <div class="callout"><b>순서</b> — ADDRESS가 비어 있으면 <b>클래스/컨트롤러</b>, ADDRESS는 있는데 404면 <b>host·path</b>, 503이면 <b>백엔드 Service·엔드포인트</b>를 봅니다.</div>
+      </div>
+    </details>
+
+    <details class="acc">
+      <summary><span class="num">5</span><span class="t">Gateway API — GatewayClass / Gateway / HTTPRoute</span><span class="arrow">▾</span></summary>
+      <div class="acc-body">
+        <p>Gateway API는 Ingress를 잇는 표준입니다. 리소스가 <strong>역할별로 쪼개져</strong> 있어 "누가 무엇을 소유하는가"가 분명합니다.</p>
+        <table class="tbl">
+          <tr><th>리소스</th><th>범위</th><th>역할</th><th>Ingress 대응</th></tr>
+          <tr><td><code>GatewayClass</code></td><td>클러스터</td><td>컨트롤러 구현 선언 — <code>spec.controllerName</code></td><td><code>IngressClass</code></td></tr>
+          <tr><td><code>Gateway</code></td><td>네임스페이스</td><td>리스너(port·protocol·hostname·TLS) — 실제 LB 진입점, <code>gatewayClassName</code> 참조</td><td>컨트롤러의 Service/LB</td></tr>
+          <tr><td><code>HTTPRoute</code></td><td>네임스페이스</td><td><code>parentRefs</code>로 Gateway에 붙고 <code>rules.matches</code>·<code>backendRefs</code>로 라우팅</td><td>Ingress의 <code>rules</code></td></tr>
+        </table>
+        <pre><code>apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: web-gw
+  namespace: prod
+spec:
+  gatewayClassName: nginx            # GatewayClass 이름
+  listeners:
+  - name: http
+    port: 80
+    protocol: HTTP
+    hostname: "api.example.com"
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: api-route
+  namespace: prod
+spec:
+  parentRefs:
+  - name: web-gw                     # 어느 Gateway에 붙는지
+  hostnames: ["api.example.com"]
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix             # Exact | PathPrefix | RegularExpression
+        value: /api
+    backendRefs:
+    - name: api-svc
+      port: 80</code></pre>
+        <ul>
+          <li>CRD가 먼저 있어야 합니다 — <code>kubectl get crd | grep gateway</code></li>
+          <li>상태 확인: <code>kubectl get gatewayclass</code> → Accepted, <code>kubectl get gateway</code> → <b>Programmed</b>, <code>kubectl get httproute</code> → <b>Accepted / ResolvedRefs</b></li>
+          <li><code>AllowedRoutes</code> 설정 때문에 다른 네임스페이스의 HTTPRoute가 거부될 수 있습니다.</li>
+          <li><code>HTTPRoute</code> 외에 <code>GRPCRoute</code>·<code>TLSRoute</code>·<code>TCPRoute</code>가 있습니다.</li>
+        </ul>
+
+        <h4>시험 함정 체크리스트</h4>
+        <ul>
+          <li>NetworkPolicy의 <code>ingress: []</code>는 <b>전부 차단</b>, <code>ingress: [{}]</code>는 <b>전부 허용</b></li>
+          <li>Egress를 열면 <b>DNS(53/UDP·TCP)</b>를 잊지 말 것 — 안 열면 이름 해석부터 실패</li>
+          <li><code>podSelector</code>+<code>namespaceSelector</code>를 <b>한 항목</b>에 쓰면 AND, <b>두 항목</b>이면 OR</li>
+          <li>Service가 안 되면 <b><code>get endpoints</code></b> 먼저 — 비었으면 selector, 있으면 targetPort·정책</li>
+          <li>Ingress는 <b><code>ingressClassName</code></b>이 없으면 조용히 무시된다</li>
+          <li>CoreDNS Service 이름은 <b><code>kube-dns</code></b>(kube-system)</li>
+          <li>다른 네임스페이스는 <b><code>svc.ns</code></b> 또는 FQDN으로 부른다</li>
+          <li>만든 리소스는 <b>지정한 네임스페이스</b>에 있는지 <code>-n</code>으로 확인</li>
+        </ul>
+      </div>
+    </details>
+  </section>
+
+  <!-- ===== 퀴즈 ===== -->
+  <section class="sec" id="quiz">
+    <div class="sec-head">
+      <h2>인터랙티브 퀴즈</h2>
+      <span class="hint">한 문항씩 · 고르면 바로 해설</span>
+    </div>
+
+    <div class="quiz-card" id="quizCard">
+      <div class="qtop">
+        <span class="qcount" id="qCount">1 / 5</span>
+        <span class="qtag" id="qTag">Service</span>
+      </div>
+      <div class="bar"><i id="bar"></i></div>
+
+      <h3 class="qtext" id="qText"></h3>
+      <div id="qCodeWrap"></div>
+      <div class="opts" id="opts"></div>
+
+      <div id="explainWrap"></div>
+
+      <div class="qfoot" id="footWrap" hidden>
+        <button class="next" id="nextBtn" type="button">다음 문제 →</button>
+      </div>
+    </div>
+
+    <div class="result" id="result" hidden>
+      <div class="ring" id="ring">
+        <div class="in">
+          <span class="score" id="scoreNum">0</span>
+          <span class="of" id="scoreOf">0 / 5</span>
+        </div>
+      </div>
+      <h3 class="res-title" id="resTitle">결과</h3>
+      <p class="res-sub" id="resSub"></p>
+
+      <div class="tally">
+        <div><span class="n g" id="tRight">0</span><span class="l">정답</span></div>
+        <div><span class="n r" id="tWrong">0</span><span class="l">오답</span></div>
+        <div><span class="n" id="tScore">0점</span><span class="l">환산 점수</span></div>
+      </div>
+
+      <div class="rev-head">문제별 정오표</div>
+      <div id="revList"></div>
+
+      <div class="actions">
+        <button class="btn primary" id="retryWrong" type="button">오답만 다시 풀기</button>
+        <button class="btn dark" id="retryAll" type="button">전체 다시 풀기</button>
+        <a class="btn ghost" href="./index.html" style="width:100%;min-height:54px">대시보드로</a>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Day 03 · Services &amp; Networking — NetworkPolicy / CoreDNS / Ingress·Gateway<br>
+    CKA Daily Study · <a href="./index.html">전체 회차 보기</a>
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var QS = [
+    {
+      n: 1,
+      tag: "Service · EndpointSlice",
+      q: "`web` 파드 3개가 모두 `Running` 이고, 같은 네임스페이스의 `web` Service(ClusterIP 10.96.14.22)를 호출하면 `connection refused` 가 난다. `kubectl get endpoints web` 결과가 `web   <none>` 이었다. 다음 조치로 가장 적절한 것은?",
+      code:
+        "kubectl get svc web -o wide\n" +
+        "# NAME   TYPE        CLUSTER-IP     PORT(S)   SELECTOR\n" +
+        "# web    ClusterIP   10.96.14.22    80/TCP    app=web\n" +
+        "\n" +
+        "kubectl get pods --show-labels\n" +
+        "# NAME    READY   STATUS    LABELS\n" +
+        "# web-0   1/1     Running   app=webapp,tier=front\n" +
+        "# web-1   1/1     Running   app=webapp,tier=front\n" +
+        "# web-2   1/1     Running   app=webapp,tier=front",
+      opts: [
+        { t: "Service의 `selector` 를 `app: webapp` 으로 고쳐 라벨과 맞춘다" },
+        { t: "`targetPort` 를 컨테이너 포트(8080)로 고친다" },
+        { t: "kube-proxy 데몬셋을 재시작해 iptables 규칙을 다시 만든다" },
+        { t: "Service 를 headless(`clusterIP: None`)로 바꿔 파드 IP 로 직접 붙는다" }
+      ],
+      answer: 0,
+      why: "Endpoints가 비어 있다는 것은 엔드포인트 컨트롤러가 selector와 일치하는 Ready 파드를 찾지 못했다는 뜻입니다. 여기서는 Service selector가 app=web 인데 파드 라벨이 app=webapp 이라 하나도 매칭되지 않습니다. targetPort 는 Endpoints가 채워진 뒤에 문제가 되는 값이라 이 증상과 무관하고(비어 있으면 iptables에 목적지가 아예 없어 RST), kube-proxy는 Endpoints가 있으면 규칙을 만들므로 원인이 아닙니다. headless 로 바꾸면 이름 해석만 직접 파드 IP로 바뀌고 여전히 백엔드를 못 찾습니다. 고친 뒤 `kubectl get endpoints web` 에 파드 IP가 채워지는지 확인하세요.",
+      whyCode:
+        "kubectl patch svc web -p '{\"spec\":{\"selector\":{\"app\":\"webapp\"}}}'\n" +
+        "kubectl get endpoints web            # 파드 IP:80 이 채워져야 함\n" +
+        "kubectl get endpointslices -l kubernetes.io/service-name=web -o wide\n" +
+        "kubectl run nettest --rm -it --restart=Never --image=nicolaka/netshoot \\\n" +
+        "  -- curl -sS -m3 http://web.default.svc.cluster.local"
+    },
+    {
+      n: 2,
+      tag: "NetworkPolicy · AND/OR",
+      q: "아래 NetworkPolicy 를 `prod` 네임스페이스에 적용했다. `app=db` 파드로 들어올 수 있는 트래픽을 옳게 설명한 것은?",
+      code:
+        "apiVersion: networking.k8s.io/v1\n" +
+        "kind: NetworkPolicy\n" +
+        "metadata:\n" +
+        "  name: db-allow\n" +
+        "  namespace: prod\n" +
+        "spec:\n" +
+        "  podSelector:\n" +
+        "    matchLabels:\n" +
+        "      app: db\n" +
+        "  policyTypes: [\"Ingress\"]\n" +
+        "  ingress:\n" +
+        "  - from:\n" +
+        "    - podSelector:\n" +
+        "        matchLabels:\n" +
+        "          role: frontend\n" +
+        "    - namespaceSelector:\n" +
+        "        matchLabels:\n" +
+        "          env: prod",
+      opts: [
+        { t: "`env=prod` 라벨이 붙은 네임스페이스 안의 파드 중 `role=frontend` 인 파드만 (두 조건 AND)" },
+        { t: "같은 `prod` 네임스페이스에서 `role=frontend` 인 파드, 또는 `env=prod` 라벨이 붙은 모든 네임스페이스의 모든 파드 (두 조건 OR)" },
+        { t: "클러스터 어디서든 `role=frontend` 라벨이 붙은 파드만" },
+        { t: "규칙에 port 가 없으므로 어떤 트래픽도 허용되지 않는다" }
+      ],
+      answer: 1,
+      why: "`from` 은 리스트이고 각 항목이 독립된 허용 조건이라 항목이 둘이면 OR입니다. 그래서 ① 정책과 같은 네임스페이스(prod)에서 role=frontend 인 파드, ② env=prod 라벨이 붙은 네임스페이스(자기 자신 포함)의 모든 파드가 허용됩니다. 두 조건을 모두 요구하려면 하나의 항목 안에 podSelector 와 namespaceSelector 를 함께 적어야 합니다. port 를 생략하면 '모든 포트'를 뜻하므로 4번은 틀립니다. 위치가 헷갈리면 '대시(-) 하나가 OR 한 덩어리'로 기억하세요.",
+      whyCode:
+        "# AND 로 바꾸려면 한 항목에 함께 적는다\n" +
+        "  ingress:\n" +
+        "  - from:\n" +
+        "    - namespaceSelector:\n" +
+        "        matchLabels: {env: prod}\n" +
+        "      podSelector:\n" +
+        "        matchLabels: {role: frontend}\n" +
+        "\n" +
+        "kubectl -n prod describe networkpolicy db-allow\n" +
+        "kubectl -n prod get netpol"
+    },
+    {
+      n: 3,
+      tag: "NetworkPolicy · Egress",
+      q: "새 네임스페이스 `batch` 에 아래 정책을 적용한 뒤로 파드가 외부 API 호출에서 `lookup api.example.com on 10.96.0.10:53: read udp ... i/o timeout` 으로 실패한다. 원인과 조치로 가장 정확한 것은?",
+      code:
+        "spec:\n" +
+        "  podSelector: {}\n" +
+        "  policyTypes: [\"Ingress\", \"Egress\"]\n" +
+        "  ingress: []\n" +
+        "  egress: []",
+      opts: [
+        { t: "CoreDNS 파드가 죽었으므로 `kubectl -n kube-system rollout restart deploy/coredns` 한다" },
+        { t: "`policyTypes` 에서 `Egress` 를 빼면 Egress 규칙이 없는 것으로 처리되어 아무것도 차단되지 않는다" },
+        { t: "`podSelector: {}` 는 파드를 하나도 선택하지 않으므로 정책이 적용되지 않았다. `matchLabels` 를 채워야 한다" },
+        { t: "`egress: []` 로 Egress 가 전부 차단돼 kube-system 의 DNS(53)까지 막혔다. DNS 로 나가는 Egress 허용 규칙을 추가한다" }
+      ],
+      answer: 3,
+      why: "`egress: []` 는 '규칙 없음'이라 Egress 트래픽이 전부 차단되고, 그 안에는 CoreDNS(kube-dns, 53/UDP·TCP)로 가는 쿼리도 포함됩니다. 그래서 API 도달 전에 이름 해석에서 `i/o timeout` 이 납니다. 조치는 kube-system 의 53 포트로 나가는 Egress 를 명시적으로 허용하고, 필요하면 목적지 서비스의 IP/포트도 함께 여는 것입니다. CoreDNS 자체는 살아 있으므로 재시작은 무관하고, `policyTypes` 에서 Egress 를 빼면 차단은 풀리지만 'Egress 를 통제한다'는 목적을 버리는 것이며, `podSelector: {}` 는 반대로 네임스페이스의 모든 파드를 선택합니다.",
+      whyCode:
+        "  egress:\n" +
+        "  - to:\n" +
+        "    - namespaceSelector:\n" +
+        "        matchLabels:\n" +
+        "          kubernetes.io/metadata.name: kube-system\n" +
+        "    ports:\n" +
+        "    - {protocol: UDP, port: 53}\n" +
+        "    - {protocol: TCP, port: 53}\n" +
+        "  - to:\n" +
+        "    - namespaceSelector: {}\n" +
+        "    ports:\n" +
+        "    - {protocol: TCP, port: 443}\n" +
+        "\n" +
+        "kubectl run -n batch dnstest --rm -it --restart=Never \\\n" +
+        "  --image=nicolaka/netshoot -- dig +short api.example.com"
+    },
+    {
+      n: 4,
+      tag: "CoreDNS",
+      q: "`dev` 네임스페이스의 파드에서 `prod` 네임스페이스의 `api` Service(8080)에 붙어야 한다. `curl http://api:8080` 은 `Could not resolve host` 로 실패한다. 주소와 검증 방법으로 가장 적절한 것은?",
+      code:
+        "# dev 파드의 /etc/resolv.conf\n" +
+        "search dev.svc.cluster.local svc.cluster.local cluster.local\n" +
+        "nameserver 10.96.0.10\n" +
+        "options ndots:5",
+      opts: [
+        { t: "`http://api:8080` 그대로 두면 된다 — CoreDNS 가 클러스터 전체에서 이름이 유일한 Service 를 찾아 준다" },
+        { t: "`http://api.default.svc.cluster.local:8080` 로 부른다 — 짧은 이름은 default 네임스페이스로 해석된다" },
+        { t: "`http://api.prod.svc.cluster.local:8080` 로 부르고, `kubectl run -n dev dnstest --rm -it --image=nicolaka/netshoot -- dig +short api.prod.svc.cluster.local` 로 확인한다" },
+        { t: "`http://coredns.kube-system.svc.cluster.local:8080` 으로 부른다 — CoreDNS Service 를 경유해야 한다" }
+      ],
+      answer: 2,
+      why: "파드의 search 목록 첫 항목이 자기 네임스페이스(`dev.svc.cluster.local`)이고 ndots:5 라서, 점이 5개 미만인 이름은 search 를 먼저 붙여 시도합니다. 그래서 `api` 는 `api.dev.svc.cluster.local` 로만 찾고 prod 의 api 는 나오지 않습니다. FQDN `api.prod.svc.cluster.local`(또는 `api.prod`)을 써야 하며, 임시 파드에서 dig/nslookup 으로 그 이름이 A 레코드를 주는지 확인하는 것이 검증 절차입니다. CoreDNS 의 Service 이름은 `kube-dns` 이고 `coredns` 라는 Service 는 없으며, 짧은 이름이 default 로 가는 것도 아닙니다.",
+      whyCode:
+        "kubectl run -n dev dnstest --rm -it --restart=Never \\\n" +
+        "  --image=nicolaka/netshoot -- dig +short api.prod.svc.cluster.local\n" +
+        "\n" +
+        "kubectl -n prod get svc api\n" +
+        "kubectl -n kube-system get svc kube-dns        # 10.96.0.10\n" +
+        "kubectl -n kube-system get pods -l k8s-app=kube-dns\n" +
+        "kubectl -n dev exec deploy/dev-app -- cat /etc/resolv.conf"
+    },
+    {
+      n: 5,
+      tag: "Ingress · Gateway",
+      q: "ingress-nginx 가 설치돼 있고 `IngressClass nginx` 는 기본 클래스로 지정되어 있지 않다. 아래 Ingress 를 적용했더니 `kubectl get ingress` 의 `ADDRESS` 가 비어 있고, 컨트롤러로 온 요청은 모두 기본 백엔드 404 로 떨어진다. 가장 정확한 원인과 조치는?",
+      code:
+        "apiVersion: networking.k8s.io/v1\n" +
+        "kind: Ingress\n" +
+        "metadata:\n" +
+        "  name: api\n" +
+        "  namespace: prod\n" +
+        "spec:\n" +
+        "  rules:\n" +
+        "  - host: api.example.com\n" +
+        "    http:\n" +
+        "      paths:\n" +
+        "      - path: /api\n" +
+        "        pathType: Prefix\n" +
+        "        backend:\n" +
+        "          service:\n" +
+        "            name: api-svc\n" +
+        "            port:\n" +
+        "              number: 80",
+      opts: [
+        { t: "`spec.ingressClassName: nginx` 를 추가한다 — 클래스가 없으면 컨트롤러가 이 Ingress 를 무시한다" },
+        { t: "`pathType` 을 `Exact` 로 바꾼다 — `Prefix` 는 `/api/users` 를 매칭하지 못한다" },
+        { t: "`api-svc` 의 type 을 `LoadBalancer` 로 바꾼다 — Ingress 는 LoadBalancer Service 에만 연결된다" },
+        { t: "`GatewayClass` 와 `HTTPRoute` 를 추가로 생성한다 — Ingress 만으로는 라우팅이 완성되지 않는다" }
+      ],
+      answer: 0,
+      why: "컨트롤러는 IngressClass 로 처리 대상을 고릅니다. `ingressClassName` 도 없고 기본 클래스도 지정되지 않았다면 컨트롤러는 이 Ingress 를 아예 무시하므로 ADDRESS 가 비고, 요청은 기본 백엔드 404 로 갑니다. `kubectl get ingressclass` 로 이름을 확인해 필드로 지정하면 됩니다(레거시 annotation 보다 필드가 표준). `Prefix` 는 경로 요소 단위 비교라 `/api` 가 `/api/users` 를 정상 매칭하므로 2번은 틀리고, Ingress 백엔드는 ClusterIP Service 로 충분하며, Gateway API 는 Ingress 를 대체하는 별도 방식이라 함께 만들어야 하는 것이 아닙니다.",
+      whyCode:
+        "kubectl get ingressclass\n" +
+        "kubectl -n prod patch ingress api \\\n" +
+        "  -p '{\"spec\":{\"ingressClassName\":\"nginx\"}}'\n" +
+        "\n" +
+        "kubectl -n prod describe ingress api      # Address, Rules 확인\n" +
+        "kubectl -n prod get endpoints api-svc     # 503 이면 여기가 비어 있음\n" +
+        "kubectl -n ingress-nginx logs deploy/ingress-nginx-controller --tail=50\n" +
+        "\n" +
+        "# Gateway API 로 옮길 때의 대응\n" +
+        "#   ingressClassName  -> Gateway.spec.gatewayClassName\n" +
+        "#   rules             -> HTTPRoute.spec.rules + parentRefs"
+    }
+  ];
+
+  var LETTER = ["A", "B", "C", "D", "E"];
+  var queue = [];
+  var idx = 0;
+  var picks = {};
+
+  var el = {
+    quizCard: document.getElementById("quizCard"),
+    qCount: document.getElementById("qCount"),
+    qTag: document.getElementById("qTag"),
+    bar: document.getElementById("bar"),
+    qText: document.getElementById("qText"),
+    qCodeWrap: document.getElementById("qCodeWrap"),
+    opts: document.getElementById("opts"),
+    explainWrap: document.getElementById("explainWrap"),
+    footWrap: document.getElementById("footWrap"),
+    nextBtn: document.getElementById("nextBtn"),
+    result: document.getElementById("result"),
+    ring: document.getElementById("ring"),
+    scoreNum: document.getElementById("scoreNum"),
+    scoreOf: document.getElementById("scoreOf"),
+    resTitle: document.getElementById("resTitle"),
+    resSub: document.getElementById("resSub"),
+    tRight: document.getElementById("tRight"),
+    tWrong: document.getElementById("tWrong"),
+    tScore: document.getElementById("tScore"),
+    revList: document.getElementById("revList"),
+    retryWrong: document.getElementById("retryWrong"),
+    retryAll: document.getElementById("retryAll")
+  };
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  function md(s) {
+    var out = esc(s);
+    return out.replace(/`([^`]+)`/g, function (m, code) {
+      return "<code>" + code + "</code>";
+    });
+  }
+
+  function byId(n) {
+    for (var i = 0; i < QS.length; i++) { if (QS[i].n === n) { return QS[i]; } }
+    return null;
+  }
+
+  function start(ids) {
+    queue = ids.slice();
+    idx = 0;
+    picks = {};
+    el.result.hidden = true;
+    el.quizCard.hidden = false;
+    render();
+    el.quizCard.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function render() {
+    var q = byId(queue[idx]);
+    var picked = picks[q.n];
+    var answered = typeof picked === "number";
+
+    el.qCount.textContent = (idx + 1) + " / " + queue.length;
+    el.qTag.textContent = q.tag + " · Q" + q.n;
+    el.bar.style.width = (((idx + 1) / queue.length) * 100) + "%";
+    el.qText.innerHTML = md(q.q);
+    el.qCodeWrap.innerHTML = q.code ? "<pre><code>" + esc(q.code) + "</code></pre>" : "";
+
+    var html = "";
+    for (var i = 0; i < q.opts.length; i++) {
+      html += "<button class=\"opt\" type=\"button\" data-i=\"" + i + "\">" +
+        "<span class=\"k\">" + LETTER[i] + "</span>" +
+        "<span class=\"txt\">" + md(q.opts[i].t) + "</span>" +
+        "<span class=\"mk\"></span></button>";
+    }
+    el.opts.innerHTML = html;
+    el.opts.className = "opts";
+
+    if (answered) {
+      paint(q, picked);
+    } else {
+      el.explainWrap.innerHTML = "";
+      el.footWrap.hidden = true;
+    }
+  }
+
+  function paint(q, picked) {
+    var nodes = el.opts.querySelectorAll(".opt");
+    for (var i = 0; i < nodes.length; i++) {
+      var b = nodes[i];
+      b.classList.remove("correct", "wrong", "dim");
+      var mk = b.querySelector(".mk");
+      if (i === q.answer) {
+        b.classList.add("correct");
+        if (mk) { mk.textContent = "✓"; }
+      } else if (i === picked) {
+        b.classList.add("wrong");
+        if (mk) { mk.textContent = "✕"; }
+      } else {
+        b.classList.add("dim");
+      }
+    }
+    el.opts.classList.add("locked");
+
+    var ok = picked === q.answer;
+    var ex = "<div class=\"explain\">" +
+      "<div class=\"verdict " + (ok ? "ok" : "no") + "\">" +
+      (ok ? "✓ 정답입니다" : "✕ 오답 — 정답은 " + LETTER[q.answer]) +
+      "</div>" +
+      "<p>" + esc(q.why) + "</p>";
+    if (q.whyCode) {
+      ex += "<div class=\"lbl\">명령 흐름</div><pre><code>" + esc(q.whyCode) + "</code></pre>";
+    }
+    ex += "</div>";
+    el.explainWrap.innerHTML = ex;
+
+    el.footWrap.hidden = false;
+    el.nextBtn.textContent = (idx + 1 < queue.length) ? "다음 문제 →" : "결과 보기 →";
+  }
+
+  el.opts.addEventListener("click", function (ev) {
+    var btn = ev.target.closest(".opt");
+    if (!btn) { return; }
+    var q = byId(queue[idx]);
+    if (typeof picks[q.n] === "number") { return; }
+    var i = parseInt(btn.getAttribute("data-i"), 10);
+    picks[q.n] = i;
+    paint(q, i);
+    setTimeout(function () {
+      if (el.footWrap.hidden) { return; }
+      el.footWrap.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, 90);
+  });
+
+  el.nextBtn.addEventListener("click", function () {
+    if (idx + 1 < queue.length) {
+      idx += 1;
+      render();
+      el.quizCard.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else {
+      showResult();
+    }
+  });
+
+  function showResult() {
+    var total = queue.length;
+    var right = 0;
+    for (var i = 0; i < queue.length; i++) {
+      var q = byId(queue[i]);
+      if (picks[q.n] === q.answer) { right += 1; }
+    }
+    var wrong = total - right;
+    var score = Math.round((right / total) * 100);
+
+    el.quizCard.hidden = true;
+    el.result.hidden = false;
+
+    el.scoreNum.textContent = score;
+    el.scoreOf.textContent = right + " / " + total;
+    var deg = (score / 100) * 360;
+    var color = score >= 80 ? "#39d3a2" : (score >= 60 ? "#ffc457" : "#ff6b6b");
+    el.scoreNum.style.color = color;
+    el.ring.style.background = "conic-gradient(" + color + " 0deg, " + color + " " + deg + "deg, #1c2735 " + deg + "deg)";
+
+    el.tRight.textContent = String(right);
+    el.tWrong.textContent = String(wrong);
+    el.tScore.textContent = score + "점";
+
+    if (score === 100) {
+      el.resTitle.textContent = "만점입니다 🎯";
+      el.resSub.textContent = "네트워킹 동선이 잡혔습니다. 내일은 Workloads & Scheduling 회차입니다.";
+    } else if (score >= 80) {
+      el.resTitle.textContent = "합격선 통과 (" + score + "점)";
+      el.resSub.textContent = "CKA 합격선 66%를 넘었습니다. 틀린 " + wrong + "문항만 정리하면 충분합니다.";
+    } else if (score >= 60) {
+      el.resTitle.textContent = "조금만 더 (" + score + "점)";
+      el.resSub.textContent = "합격선 66% 근처입니다. 오답 " + wrong + "문항의 해설을 한 번 더 읽어 보세요.";
+    } else {
+      el.resTitle.textContent = "다시 한 번 (" + score + "점)";
+      el.resSub.textContent = "위의 이론 2·3번(NetworkPolicy, CoreDNS)을 먼저 펼쳐 보고 오답만 다시 풀어 보세요.";
+    }
+
+    var html = "";
+    for (var j = 0; j < queue.length; j++) {
+      var qq = byId(queue[j]);
+      var p = picks[qq.n];
+      var good = p === qq.answer;
+      html += "<div class=\"rev " + (good ? "ok" : "no") + "\">" +
+        "<div class=\"rev-top\">" +
+        "<span class=\"rev-no\">Q" + qq.n + "</span>" +
+        "<span class=\"" + (good ? "mark-ok" : "mark-no") + "\">" + (good ? "정답" : "오답") + "</span>" +
+        "</div>" +
+        "<p class=\"rev-q\">" + md(qq.q) + "</p>" +
+        "<p class=\"rev-ans\">내 답 <b>" + (typeof p === "number" ? LETTER[p] : "-") + "</b> · 정답 <b>" + LETTER[qq.answer] + "</b></p>";
+      if (!good) {
+        html += "<div class=\"rev-why\"><span class=\"lbl\">오답 풀이</span>" + esc(qq.why) + "</div>";
+      }
+      html += "</div>";
+    }
+    el.revList.innerHTML = html;
+
+    el.retryWrong.style.display = wrong > 0 ? "" : "none";
+    el.retryWrong.textContent = "오답만 다시 풀기 (" + wrong + "문항)";
+
+    el.result.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  el.retryWrong.addEventListener("click", function () {
+    var ids = [];
+    for (var i = 0; i < queue.length; i++) {
+      var q = byId(queue[i]);
+      if (picks[q.n] !== q.answer) { ids.push(q.n); }
+    }
+    if (!ids.length) { return; }
+    start(ids);
+  });
+
+  el.retryAll.addEventListener("click", function () {
+    var ids = [];
+    for (var i = 0; i < QS.length; i++) { ids.push(QS[i].n); }
+    start(ids);
+  });
+
+  // 시작
+  var all = [];
+  for (var i = 0; i < QS.length; i++) { all.push(QS[i].n); }
+  start(all);
+})();
+</script>
+</body>
+</html>
