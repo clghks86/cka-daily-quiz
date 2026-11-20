@@ -883,7 +883,7 @@ spec:
       "<div class=\"verdict " + (ok ? "ok" : "no") + "\">" +
       (ok ? "✓ 정답입니다" : "✕ 오답 — 정답은 " + LETTER[q.answer]) +
       "</div>" +
-      "<p>" + esc(q.why) + "</p>";
+      "<p>" + md(q.why) + "</p>";
     if (q.whyCode) {
       ex += "<div class=\"lbl\">명령 흐름</div><pre><code>" + esc(q.whyCode) + "</code></pre>";
     }
@@ -969,7 +969,7 @@ spec:
         "<p class=\"rev-q\">" + md(qq.q) + "</p>" +
         "<p class=\"rev-ans\">내 답 <b>" + (typeof p === "number" ? LETTER[p] : "-") + "</b> · 정답 <b>" + LETTER[qq.answer] + "</b></p>";
       if (!good) {
-        html += "<div class=\"rev-why\"><span class=\"lbl\">오답 풀이</span>" + esc(qq.why) + "</div>";
+        html += "<div class=\"rev-why\"><span class=\"lbl\">오답 풀이</span>" + md(qq.why) + "</div>";
       }
       html += "</div>";
     }
