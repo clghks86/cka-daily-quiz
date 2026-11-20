@@ -124,6 +124,12 @@
   .tbl th{background:rgba(255,255,255,.045);font-weight:700;color:#dbe7f5;white-space:nowrap}
   .tbl td{color:#c2d1e2}
   .tbl td code,.tbl th code{font-family:var(--mono);font-size:12px;background:rgba(120,160,220,.14);color:#a9d0ff;padding:1px 5px;border-radius:5px;overflow-wrap:anywhere}
+  @media (max-width:480px){
+    .tbl{font-size:12.4px}
+    .tbl th{white-space:normal}
+    .tbl th,.tbl td{padding:7px 8px}
+    .tbl td,.tbl th{overflow-wrap:anywhere}
+  }
 
   .callout{
     margin:12px 0;padding:12px 14px;border-radius:12px;
