@@ -309,10 +309,10 @@ kubectl describe node node1 | grep -A3 -i taint</code></pre>
         <h4>toleration 매칭 규칙</h4>
         <table class="tbl">
           <tr><th>작성</th><th>매칭되는 taint</th></tr>
-          <tr><td><code>key</code>+<code>operator: Equal</code>+<code>value</code>+<code>effect</code></td><td>key·value·effect <b>모두</b> 같아야 함</td></tr>
-          <tr><td><code>key</code>+<code>operator: Exists</code></td><td>그 key의 taint면 <b>value 무시</b>. 단 effect를 적었다면 effect는 여전히 맞아야 함</td></tr>
-          <tr><td><code>effect</code> 생략</td><td>그 key의 <b>모든 effect</b>와 매칭</td></tr>
-          <tr><td><code>key</code> 비우고 <code>operator: Exists</code></td><td><b>모든 taint</b>를 견딤(가장 강한 toleration)</td></tr>
+          <tr><td><code>Equal</code><br>+ <code>value</code><br>+ <code>effect</code></td><td>key·value·effect <b>모두</b> 같아야 함</td></tr>
+          <tr><td><code>Exists</code><br>+ <code>key</code></td><td>그 key의 taint면 <b>value 무시</b>. 단 effect를 적었다면 effect는 여전히 맞아야 함</td></tr>
+          <tr><td><code>effect</code><br>생략</td><td>그 key의 <b>모든 effect</b>와 매칭</td></tr>
+          <tr><td><code>key</code> 없이<br><code>Exists</code></td><td><b>모든 taint</b>를 견딤(가장 강한 toleration)</td></tr>
         </table>
         <div class="callout"><b>실무 포인트</b> — 시스템 taint는 노드 컨트롤러가 자동으로 붙입니다: <code>node.kubernetes.io/not-ready</code>·<code>unreachable</code>·<code>memory-pressure</code>·<code>disk-pressure</code>·<code>pid-pressure</code>·<code>unschedulable</code>. kubeadm의 컨트롤 플레인 taint는 <b><code>node-role.kubernetes.io/control-plane:NoSchedule</code></b>(구버전 <code>master</code>)로, 이건 자동 toleration 대상이 아닙니다.</div>
       </div>
