@@ -131,7 +131,8 @@
     .tbl td,.tbl th{overflow-wrap:anywhere}
     /* 짧은 키워드 열은 단어 중간에서 끊기지 않게 폭을 주고 글자를 줄인다 */
     .tbl td code,.tbl th code{font-size:11.2px;letter-spacing:-.02em}
-    .tbl-key col.k{width:44%}
+    .tbl-key col.k{width:40%}
+    .tbl-rule col.k{width:34%}
     .tbl-cmp col.c1{width:26%}
     .tbl-cmp col.c2{width:37%}
     .tbl-cmp col.c3{width:37%}
@@ -307,7 +308,8 @@ kubectl get nodes -o custom-columns=NAME:.metadata.name,TAINTS:.spec.taints
 kubectl describe node node1 | grep -A3 -i taint</code></pre>
 
         <h4>toleration 매칭 규칙</h4>
-        <table class="tbl">
+        <table class="tbl tbl-rule">
+          <colgroup><col class="k"><col></colgroup>
           <tr><th>작성</th><th>매칭되는 taint</th></tr>
           <tr><td><code>Equal</code><br>+ <code>value</code><br>+ <code>effect</code></td><td>key·value·effect <b>모두</b> 같아야 함</td></tr>
           <tr><td><code>Exists</code><br>+ <code>key</code></td><td>그 key의 taint면 <b>value 무시</b>. 단 effect를 적었다면 effect는 여전히 맞아야 함</td></tr>
