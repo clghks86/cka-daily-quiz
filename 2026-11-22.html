@@ -597,7 +597,7 @@ kubectl rollout undo ds/kube-proxy -n kube-system</code></pre>
         { t: "파드를 삭제하면 스케줄러가 부족한 라벨을 노드에 자동으로 부여한다" }
       ],
       answer: 2,
-      why: "`required...` 는 스케줄링 시점의 하드 조건이라 조건을 만족하는 노드가 하나도 없으면 파드는 Pending 으로 남습니다. nodeAffinity 는 노드 라벨만 보므로 toleration 과 무관하고(taint 문제가 아님), 스케줄러는 라벨을 임의로 만들지 않습니다. 목적이 '가능하면 SSD 노드'라면 `preferredDuringSchedulingIgnoredDuringExecution` + weight 로 바꿔 남는 노드에라도 뜨게 합니다. 함께 기억할 점: `nodeSelectorTerms` 가 여러 개면 OR, 한 term 안의 `matchExpressions` 는 AND 이고, `IgnoredDuringExecution` 이라 **이미 Running 인 파드는 노드 라벨을 지워도 축출되지 않습니다**.",
+      why: "`required...` 는 스케줄링 시점의 하드 조건이라 조건을 만족하는 노드가 하나도 없으면 파드는 Pending 으로 남습니다. nodeAffinity 는 노드 라벨만 보므로 toleration 과 무관하고(taint 문제가 아님), 스케줄러는 라벨을 임의로 만들지 않습니다. 목적이 '가능하면 SSD 노드'라면 `preferredDuringSchedulingIgnoredDuringExecution` + weight 로 바꿔 남는 노드에라도 뜨게 합니다. 함께 기억할 점: `nodeSelectorTerms` 가 여러 개면 OR, 한 term 안의 `matchExpressions` 는 AND 이고, `IgnoredDuringExecution` 이라 이미 Running 인 파드는 노드 라벨을 지워도 축출되지 않습니다(그래서 라벨을 지웠는데 파드가 그대로인 것이 정상입니다).",
       whyCode:
         "kubectl label node node1 node2 node3 disktype=ssd\n" +
         "kubectl get nodes -l disktype=ssd\n" +
