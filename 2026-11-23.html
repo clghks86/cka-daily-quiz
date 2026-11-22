@@ -124,11 +124,13 @@
   .tbl th{background:rgba(255,255,255,.045);font-weight:700;color:#dbe7f5;white-space:nowrap}
   .tbl td{color:#c2d1e2}
   .tbl td code,.tbl th code{font-family:var(--mono);font-size:12px;background:rgba(120,160,220,.14);color:#a9d0ff;padding:1px 5px;border-radius:5px;overflow-wrap:anywhere}
+  br.mb{display:none}
   @media (max-width:480px){
     .tbl{font-size:12.4px}
     .tbl th{white-space:normal}
     .tbl th,.tbl td{padding:7px 8px}
-    .tbl td,.tbl th{overflow-wrap:anywhere}
+    .tbl td,.tbl th{overflow-wrap:anywhere;word-break:keep-all}
+    br.mb{display:inline}
     /* 짧은 키워드 열은 단어 중간에서 끊기지 않게 폭을 주고 글자를 줄인다 */
     .tbl td code,.tbl th code{font-size:11.2px;letter-spacing:-.02em}
     .tbl-key col.k{width:40%}
@@ -295,8 +297,8 @@
         <table class="tbl tbl-cmp">
           <colgroup><col class="c1"><col class="c2"><col class="c3"></colgroup>
           <tr><th>항목</th><th>정적 (static)</th><th>동적 (dynamic)</th></tr>
-          <tr><td>PV 생성</td><td>관리자가 YAML로 미리 생성</td><td>StorageClass의 프로비저너가 자동 생성</td></tr>
-          <tr><td>PVC가 고르는 것</td><td>용량·accessMode·class가 맞는 기존 PV</td><td><code>storageClassName</code>으로 SC를 지정</td></tr>
+          <tr><td>PV 생성</td><td>관리자가 미리 생성</td><td>프로비저너가 자동 생성</td></tr>
+          <tr><td>PVC 선택</td><td>용량·mode·class가 맞는 PV</td><td><code>storageClassName</code> 지정</td></tr>
           <tr><td>속도</td><td>맞는 PV가 있으면 즉시 Bound</td><td>수 초~수십 초, 그동안 Pending</td></tr>
           <tr><td>전형</td><td>NFS·로컬 디스크·기존 볼륨</td><td>클라우드 CSI (EBS·PD·Azure Disk)</td></tr>
         </table>
@@ -363,7 +365,7 @@ kubectl delete pv pv-data</code></pre>
       <div class="acc-body">
         <table class="tbl tbl-cmp">
           <colgroup><col class="c1"><col class="c2"><col class="c3"></colgroup>
-          <tr><th>항목</th><th>Immediate</th><th>WaitForFirstConsumer</th></tr>
+          <tr><th>항목</th><th>Immediate</th><th>WaitFor<br class="mb">FirstConsumer</th></tr>
           <tr><td>프로비저닝 시점</td><td>PVC 생성 즉시</td><td>파드가 스케줄될 때</td></tr>
           <tr><td>PVC 상태</td><td>곧 Bound</td><td>소비 파드 전까지 <b>Pending (정상)</b></td></tr>
           <tr><td>강점</td><td>PVC만 만들고 바로 확인 가능</td><td>파드의 노드·존 제약에 맞는 볼륨 생성</td></tr>
