@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0f14">
+<title>Day 06 · Cluster Architecture — RBAC · ServiceAccount · TLS 인증서</title>
+<style>
+  :root{
+    --bg:#0b0f14; --bg-soft:#111823; --card:#151d29; --card-2:#1b2532;
+    --line:#243040; --line-soft:#1d2735;
+    --text:#e8eef7; --muted:#8fa1b8;
+    --accent:#4f9dff; --accent-2:#39d3a2; --accent-ink:#06121f;
+    --red:#ff6b6b; --red-soft:rgba(255,107,107,.12);
+    --green:#39d3a2; --green-soft:rgba(57,211,162,.12);
+    --amber:#ffc457;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html{-webkit-text-size-adjust:100%;scroll-behavior:smooth}
+  [hidden]{display:none !important}
+  body{
+    margin:0;
+    background:radial-gradient(1000px 460px at 50% -200px, rgba(79,157,255,.18), transparent 60%), var(--bg);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Malgun Gothic",system-ui,sans-serif;
+    font-size:16px;line-height:1.65;letter-spacing:-.01em;
+    padding:0 16px calc(48px + env(safe-area-inset-bottom));
+  }
+  a{color:var(--accent);text-decoration:none}
+  .wrap{max-width:640px;margin:0 auto}
+
+  /* 상단바 */
+  .topbar{
+    position:sticky;top:0;z-index:20;
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    margin:0 -16px 4px;padding:12px 16px;
+    background:rgba(11,15,20,.78);
+    -webkit-backdrop-filter:saturate(180%) blur(14px);backdrop-filter:saturate(180%) blur(14px);
+    border-bottom:1px solid rgba(36,48,64,.6);
+  }
+  .back{font-size:14.5px;font-weight:600;color:#c3d2e6;min-height:44px;display:flex;align-items:center;gap:4px;padding-right:8px}
+  .badge{
+    font-size:12px;font-weight:700;letter-spacing:.03em;
+    padding:6px 11px;border-radius:999px;
+    background:rgba(79,157,255,.13);color:#8ec2ff;border:1px solid rgba(79,157,255,.3);
+  }
+
+  /* 히어로 */
+  .hero{padding:20px 2px 4px}
+  .eyebrow{display:flex;align-items:center;gap:8px;margin:0;font-size:11.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--accent-2)}
+  .eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--accent-2);box-shadow:0 0 0 3px rgba(57,211,162,.18)}
+  .hero h1{margin:10px 0 6px;font-size:26px;line-height:1.3;font-weight:780;letter-spacing:-.03em}
+  .hero h1 span{display:block;font-size:15px;font-weight:600;color:#b9c9dd;letter-spacing:-.01em;margin-top:8px;line-height:1.5}
+  .metaline{display:flex;flex-wrap:wrap;gap:7px;margin-top:14px}
+  .metaline span{font-size:12px;color:#c3d2e6;background:rgba(255,255,255,.055);border:1px solid var(--line);padding:5px 10px;border-radius:999px}
+  .cta-row{display:flex;gap:10px;margin-top:18px}
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:7px;
+    min-height:54px;padding:0 18px;border-radius:14px;border:1px solid transparent;
+    font-size:15.5px;font-weight:750;font-family:inherit;letter-spacing:-.01em;
+    cursor:pointer;transition:transform .12s ease,filter .12s ease,background .15s ease;
+  }
+  .btn:active{transform:scale(.985)}
+  .btn.primary{flex:1;background:linear-gradient(180deg,#5aa7ff,#3d86e8);color:var(--accent-ink);box-shadow:0 8px 22px rgba(61,134,232,.32)}
+  .btn.ghost{background:rgba(255,255,255,.05);color:#c3d2e6;border-color:var(--line)}
+  .btn.ghost:active{background:rgba(255,255,255,.09)}
+
+  /* 섹션 공통 */
+  .sec{margin-top:34px}
+  .sec-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:12px;padding:0 2px}
+  .sec-head h2{margin:0;font-size:17px;font-weight:750;letter-spacing:-.02em}
+  .sec-head .hint{font-size:12px;color:var(--muted)}
+
+  /* 접이식 이론 */
+  details.acc{
+    background:var(--card);border:1px solid var(--line-soft);border-radius:16px;
+    margin-bottom:10px;overflow:hidden;
+  }
+  details.acc[open]{background:var(--card-2);border-color:#2a3b53}
+  details.acc summary{
+    list-style:none;cursor:pointer;
+    display:flex;align-items:center;gap:12px;
+    min-height:60px;padding:14px 16px;
+    font-size:15px;font-weight:700;letter-spacing:-.01em;
+  }
+  details.acc summary::-webkit-details-marker{display:none}
+  details.acc summary .num{
+    flex:none;width:26px;height:26px;border-radius:8px;display:grid;place-items:center;
+    font-size:12.5px;font-weight:800;background:#1e2a3a;color:#9db2cc;border:1px solid var(--line);
+  }
+  details.acc[open] summary .num{background:linear-gradient(145deg,#2f7be8,#39d3a2);color:#06121f;border-color:transparent}
+  details.acc summary .t{flex:1}
+  details.acc summary .arrow{color:#5d7590;font-size:13px;transition:transform .2s ease}
+  details.acc[open] summary .arrow{transform:rotate(180deg)}
+  .acc-body{padding:2px 16px 18px;font-size:14.5px;color:#cfdcec}
+  .acc-body p{margin:10px 0}
+  .acc-body ul{margin:10px 0;padding-left:19px}
+  .acc-body li{margin:6px 0}
+  .acc-body strong{color:#fff;font-weight:700}
+  .acc-body code{
+    font-family:var(--mono);font-size:12.8px;
+    background:rgba(120,160,220,.14);color:#a9d0ff;
+    padding:1.5px 6px;border-radius:6px;
+    overflow-wrap:anywhere;
+  }
+  .acc-body h4{margin:16px 0 6px;font-size:13px;font-weight:800;letter-spacing:.02em;color:var(--accent-2);text-transform:uppercase}
+
+  /* 코드 블록: 가로 스크롤 */
+  pre{
+    margin:10px 0;padding:13px 14px;
+    background:#0a0f16;border:1px solid #1e2a38;border-radius:12px;
+    overflow-x:auto;-webkit-overflow-scrolling:touch;
+    font-family:var(--mono);font-size:12.6px;line-height:1.7;color:#cfe4ff;
+    white-space:pre;
+  }
+  pre code{background:none;color:inherit;padding:0;font-size:inherit}
+  pre::-webkit-scrollbar{height:5px}
+  pre::-webkit-scrollbar-thumb{background:#2a3a4d;border-radius:99px}
+
+  /* 표 */
+  .tbl{width:100%;border-collapse:collapse;margin:12px 0;font-size:13.2px}
+  .tbl th,.tbl td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+  .tbl th{background:rgba(255,255,255,.045);font-weight:700;color:#dbe7f5;white-space:nowrap}
+  .tbl td{color:#c2d1e2}
+  .tbl td code,.tbl th code{font-family:var(--mono);font-size:12px;background:rgba(120,160,220,.14);color:#a9d0ff;padding:1px 5px;border-radius:5px;overflow-wrap:anywhere}
+  br.mb{display:none}
+  @media (max-width:480px){
+    .tbl{font-size:12.4px}
+    .tbl th{white-space:normal}
+    .tbl th,.tbl td{padding:7px 8px}
+    .tbl td,.tbl th{overflow-wrap:anywhere;word-break:keep-all}
+    br.mb{display:inline}
+    /* 짧은 키워드 열은 단어 중간에서 끊기지 않게 폭을 주고 글자를 줄인다 */
+    .tbl td code,.tbl th code{font-size:11.2px;letter-spacing:-.02em}
+    .tbl-key col.k{width:40%}
+    .tbl-rule col.k{width:34%}
+    .tbl-cmp col.c1{width:26%}
+    .tbl-cmp col.c2{width:37%}
+    .tbl-cmp col.c3{width:37%}
+    .tbl-mx col.c1{width:30%}
+    .tbl-mx col.c2{width:35%}
+    .tbl-mx col.c3{width:35%}
+  }
+
+  .callout{
+    margin:12px 0;padding:12px 14px;border-radius:12px;
+    background:rgba(255,196,87,.08);border:1px solid rgba(255,196,87,.28);
+    font-size:13.4px;color:#ffe3ac;
+  }
+  .callout b{color:#ffd27e}
+
+  /* 퀴즈 */
+  .quiz-card{
+    background:var(--card);border:1px solid var(--line);border-radius:20px;
+    padding:18px 16px 20px;box-shadow:0 14px 40px rgba(0,0,0,.35);
+  }
+  .qtop{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+  .qcount{font-size:12.5px;font-weight:700;color:var(--muted);letter-spacing:.04em}
+  .qtag{font-size:11.5px;font-weight:700;color:#8ec2ff;background:rgba(79,157,255,.12);border:1px solid rgba(79,157,255,.28);padding:4px 9px;border-radius:8px}
+  .bar{height:5px;border-radius:99px;background:#1c2735;overflow:hidden;margin-bottom:18px}
+  .bar > i{display:block;height:100%;width:0;border-radius:99px;background:linear-gradient(90deg,#4f9dff,#39d3a2);transition:width .3s ease}
+  .qtext{margin:0 0 12px;font-size:17px;line-height:1.55;font-weight:700;letter-spacing:-.02em}
+  .qtext code{font-family:var(--mono);font-size:14px;background:rgba(120,160,220,.14);color:#a9d0ff;padding:1.5px 6px;border-radius:6px;overflow-wrap:anywhere}
+  .qcard pre{margin:0 0 14px}
+
+  .opts{display:flex;flex-direction:column;gap:9px;margin-top:4px}
+  .opt{
+    display:flex;align-items:flex-start;gap:11px;width:100%;
+    min-height:58px;padding:13px 14px;border-radius:13px;
+    background:#101825;border:1.5px solid #26313f;color:var(--text);
+    font-family:inherit;font-size:14.6px;line-height:1.5;text-align:left;letter-spacing:-.01em;
+    cursor:pointer;transition:background .14s ease,border-color .14s ease,transform .1s ease;
+  }
+  .opt:active{transform:scale(.994)}
+  .opt .k{
+    flex:none;width:24px;height:24px;border-radius:7px;display:grid;place-items:center;
+    font-family:var(--mono);font-size:12px;font-weight:800;
+    background:#1c2836;color:#93a9c2;border:1px solid #2b3949;margin-top:1px;
+  }
+  .opt .txt{flex:1;min-width:0;overflow-wrap:anywhere}
+  .opt .txt code{font-family:var(--mono);font-size:12.6px;background:rgba(120,160,220,.14);color:#a9d0ff;padding:1px 5px;border-radius:5px}
+  .opt .mk{flex:none;font-size:15px;font-weight:800;margin-top:1px;opacity:0}
+
+  .opt.correct{background:var(--green-soft);border-color:rgba(57,211,162,.55)}
+  .opt.correct .k{background:rgba(57,211,162,.2);color:#7dffcf;border-color:rgba(57,211,162,.45)}
+  .opt.correct .mk{opacity:1;color:#4ff0bb}
+  .opt.wrong{background:var(--red-soft);border-color:rgba(255,107,107,.55)}
+  .opt.wrong .k{background:rgba(255,107,107,.18);color:#ffa9a9;border-color:rgba(255,107,107,.42)}
+  .opt.wrong .mk{opacity:1;color:#ff8f8f}
+  .opt.dim{opacity:.52}
+  .opts.locked .opt{cursor:default}
+  .opts.locked .opt:active{transform:none}
+
+  .explain{
+    margin-top:14px;padding:14px;border-radius:13px;
+    background:#0e1622;border:1px solid #22303f;
+    animation:fade .22s ease;
+  }
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  .verdict{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:800;margin-bottom:8px}
+  .verdict.ok{color:#4ff0bb}
+  .verdict.no{color:#ff9b9b}
+  .explain p{margin:0 0 8px;font-size:13.9px;line-height:1.72;color:#c6d5e6}
+  .explain p:last-child{margin-bottom:0}
+  .explain pre{margin:10px 0 0}
+  .explain .lbl{font-size:11.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:#7f93aa;margin:12px 0 4px}
+
+  .qfoot{margin-top:16px}
+  .next{
+    width:100%;min-height:56px;border-radius:14px;border:none;
+    background:linear-gradient(180deg,#5aa7ff,#3d86e8);color:var(--accent-ink);
+    font-family:inherit;font-size:16px;font-weight:800;letter-spacing:-.01em;cursor:pointer;
+    box-shadow:0 8px 20px rgba(61,134,232,.3);
+    transition:transform .12s ease,filter .12s ease;
+  }
+  .next:active{transform:scale(.985);filter:brightness(.95)}
+
+  /* 결과 */
+  .result{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:22px 18px;box-shadow:0 14px 40px rgba(0,0,0,.35)}
+  .ring{
+    width:132px;height:132px;border-radius:50%;margin:4px auto 14px;
+    display:grid;place-items:center;position:relative;
+    background:conic-gradient(var(--accent-2) 0deg, var(--accent-2) 0deg, #1c2735 0deg);
+    transition:background .6s ease;
+  }
+  .ring::before{content:"";position:absolute;inset:9px;border-radius:50%;background:#121a25}
+  .ring .in{position:relative;text-align:center}
+  .ring .score{display:block;font-size:33px;font-weight:800;line-height:1;letter-spacing:-.03em}
+  .ring .of{display:block;font-size:11.5px;color:var(--muted);margin-top:4px;letter-spacing:.04em}
+  .res-title{margin:0 0 6px;text-align:center;font-size:19px;font-weight:780;letter-spacing:-.02em}
+  .res-sub{margin:0;text-align:center;font-size:13.5px;color:var(--muted);line-height:1.6}
+
+  .tally{display:flex;gap:9px;margin:18px 0 4px}
+  .tally div{flex:1;text-align:center;padding:11px 8px;border-radius:12px;background:#101825;border:1px solid var(--line-soft)}
+  .tally .n{display:block;font-size:19px;font-weight:800;line-height:1.2}
+  .tally .l{display:block;font-size:11.5px;color:var(--muted);margin-top:2px}
+  .tally .n.g{color:#4ff0bb}
+  .tally .n.r{color:#ff9b9b}
+
+  .rev-head{margin:22px 0 10px;font-size:13px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#7f93aa}
+  .rev{padding:13px 14px;border-radius:13px;background:#101825;border:1px solid var(--line-soft);margin-bottom:9px}
+  .rev.no{border-color:rgba(255,107,107,.34);background:rgba(255,107,107,.055)}
+  .rev-top{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+  .rev-no{font-family:var(--mono);font-size:11.5px;font-weight:800;color:#93a9c2}
+  .mark-ok,.mark-no{font-size:11px;font-weight:800;padding:3px 8px;border-radius:7px;letter-spacing:.02em}
+  .mark-ok{color:#4ff0bb;background:rgba(57,211,162,.14);border:1px solid rgba(57,211,162,.3)}
+  .mark-no{color:#ff9b9b;background:rgba(255,107,107,.14);border:1px solid rgba(255,107,107,.32)}
+  .rev-q{margin:0 0 7px;font-size:13.6px;line-height:1.6;color:#d5e2f1;font-weight:600}
+  .rev-ans{margin:0;font-size:12.8px;color:#9fb2c8}
+  .rev-ans b{color:#e8eef7;font-weight:700}
+  .rev-why{margin:9px 0 0;padding-top:9px;border-top:1px dashed #24303f;font-size:13.2px;line-height:1.7;color:#bfd0e3}
+  .rev-why .lbl{display:block;font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:#7f93aa;margin-bottom:3px}
+
+  .actions{display:flex;flex-direction:column;gap:9px;margin-top:20px}
+  .actions .btn{width:100%;min-height:54px}
+  .btn.dark{background:#16202d;color:#c3d2e6;border:1px solid var(--line)}
+
+  footer{margin-top:36px;text-align:center;font-size:12px;color:#61758c;line-height:1.8}
+  footer a{color:#8fa1b8;text-decoration:underline;text-underline-offset:3px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <a class="back" href="./index.html">‹ 대시보드</a>
+    <span class="badge">Day 06 · 2026-11-24</span>
+  </div>
+
+  <section class="hero">
+    <p class="eyebrow"><span class="dot"></span>CKA 25% · Cluster Architecture</p>
+    <h1>RBAC · ServiceAccount<br>TLS 인증서 · kubeconfig
+      <span>권한이 안 먹는 이유를 네 갈래로 좁힙니다 — Role과 ClusterRole의 범위, RoleBinding이 정하는 네임스페이스, SA 토큰과 RBAC 주체, CSR 승인과 인증서 만료까지 5문항.</span>
+    </h1>
+    <div class="metaline">
+      <span>이론 4분</span>
+      <span>퀴즈 5문항</span>
+      <span>단일 HTML · 오프라인 가능</span>
+    </div>
+    <div class="cta-row">
+      <a class="btn primary" href="#quiz">퀴즈 바로 시작 →</a>
+      <a class="btn ghost" href="#theory">이론 먼저</a>
+    </div>
+  </section>
+
+  <!-- ===== 이론 ===== -->
+  <section class="sec" id="theory">
+    <div class="sec-head">
+      <h2>이론 요약</h2>
+      <span class="hint">접어 두고 필요할 때 펼치기</span>
+    </div>
+
+    <details class="acc" open>
+      <summary><span class="num">1</span><span class="t">RBAC 4개 오브젝트 — 규칙과 범위를 누가 정하나</span><span class="arrow">▾</span></summary>
+      <div class="acc-body">
+        <p><strong>Role</strong>·<strong>ClusterRole</strong>은 <b>규칙(verbs + resources + apiGroups)의 묶음</b>일 뿐이고, 누구에게 줄지는 <strong>RoleBinding</strong>·<strong>ClusterRoleBinding</strong>이 정합니다. 그래서 "ClusterRole을 참조했으니 클러스터 전체 권한"이 아니라, <b>binding의 종류가 범위</b>입니다.</p>
+
+        <table class="tbl tbl-mx">
+          <colgroup><col class="c1"><col class="c2"><col class="c3"></colgroup>
+          <tr><th>binding ＼ role</th><th>Role (ns 스코프)</th><th>ClusterRole (클러스터 스코프)</th></tr>
+          <tr><td><b>RoleBinding</b></td><td>그 Role의 규칙을 <b>binding의 ns 안에서만</b> 부여</td><td>ClusterRole의 규칙을 <b>binding의 ns 안에서만</b> 부여</td></tr>
+          <tr><td><b>ClusterRoleBinding</b></td><td>불가 — roleRef는 ClusterRole이어야 함</td><td><b>클러스터 전체</b>(모든 ns + nodes·pv·ns 같은 클러스터 리소스)</td></tr>
+        </table>
+
+        <p>ClusterRole이 필요한 경우는 세 가지입니다. ① 모든 네임스페이스에 같은 규칙을 줄 때, ② <code>nodes</code>·<code>persistentvolumes</code>·<code>namespaces</code>처럼 <b>네임스페이스가 없는 리소스</b>, ③ <code>/healthz</code> 같은 <b>nonResourceURLs</b>(ClusterRole에만 쓸 수 있음). 내장 <code>view</code>·<code>edit</code>·<code>admin</code>도 ClusterRole인데, 이들은 <b>RoleBinding으로 묶어 네임스페이스에만</b> 쓰는 것이 기본 사용법입니다.</p>
+
+        <pre><code>apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: pod-reader
+  namespace: dev
+rules:
+- apiGroups: [""]          # core 그룹은 빈 문자열
+  resources: ["pods", "pods/log"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["configmaps"]
+  resourceNames: ["app-config"]   # 이름까지 지정 — get/update 에만 유효
+  verbs: ["get", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: dev-read
+  namespace: dev            # 주체가 아니라 '권한이 적용될' 네임스페이스
+subjects:
+- kind: ServiceAccount
+  name: app-sa
+  namespace: dev            # ServiceAccount 는 반드시 명시 (생략 시 binding 의 ns)
+- kind: Group
+  name: devs
+  apiGroup: rbac.authorization.k8s.io
+roleRef:                    # 한 번 만들면 변경 불가
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: view</code></pre>
+
+        <div class="callout"><b>roleRef는 immutable</b> — 이미 만든 RoleBinding의 roleRef를 바꾸면 <code>roleRef: Invalid value: ...: cannot change roleRef</code>로 거부됩니다(권한 상승 방지). 바꿀 일이 있으면 <b>binding을 지우고 다시</b> 만들어야 합니다.</div>
+
+        <p><code>resourceNames</code>는 <b>list·watch에는 필터로 동작하지 않습니다</b>. 이름을 지정할 수 없는 요청이기 때문입니다. 특정 ConfigMap만 쓰게 하려면 <code>get</code>/<code>update</code>만 주고 <code>list</code>는 빼야 합니다.</p>
+      </div>
+    </details>
+
+    <details class="acc">
+      <summary><span class="num">2</span><span class="t">명령형 생성과 kubectl auth can-i 검증</span><span class="arrow">▾</span></summary>
+      <div class="acc-body">
+        <p>시험에서는 YAML을 다 쓰기보다 <code>kubectl create role/clusterrole/rolebinding</code>으로 빠르게 만들고, <b><code>kubectl auth can-i</code>로 즉시 검증</b>하는 흐름이 빠릅니다.</p>
+
+        <pre><code># 1) 규칙(role/clusterrole)
+kubectl create role pod-reader --verb=get,list,watch --resource=pods -n dev
+kubectl create clusterrole node-viewer --verb=get,list,watch --resource=nodes
+kubectl create clusterrole secret-none --verb="" --resource=secrets     # 권한 없음 규칙
+
+# 2) 부여(binding)
+kubectl create rolebinding dev-read --clusterrole=view --serviceaccount=dev:app-sa -n dev
+kubectl create rolebinding dev-pods --role=pod-reader --user=jane -n dev
+kubectl create rolebinding dev-team --role=pod-reader --group=devs -n dev
+kubectl create clusterrolebinding nodes-all --clusterrole=node-viewer --group=system:serviceaccounts:dev
+
+# 3) 확인
+kubectl get role,rolebinding -n dev
+kubectl describe rolebinding dev-read -n dev
+kubectl auth can-i list pods -n dev --as=system:serviceaccount:dev:app-sa
+kubectl auth can-i create pods -n prod --as=system:serviceaccount:dev:app-sa
+kubectl auth can-i --list -n dev --as=system:serviceaccount:dev:app-sa
+kubectl auth can-i get /healthz --as=jane          # nonResourceURL
+kubectl auth whoami</code></pre>
+
+        <table class="tbl tbl-key">
+          <colgroup><col class="k"><col></colgroup>
+          <tr><th>주체 표기</th><th>의미</th></tr>
+          <tr><td><code>--user=jane</code></td><td>인증서 CN이 <code>jane</code>인 사용자</td></tr>
+          <tr><td><code>--as-group=devs</code></td><td>인증서 O(organization)에 해당하는 그룹. 여러 번 쓸 수 있음</td></tr>
+          <tr><td><code>--as=system:serviceaccount:dev:app-sa</code></td><td>네임스페이스 <code>dev</code>의 SA <code>app-sa</code> — 시험 단골</td></tr>
+          <tr><td><code>system:serviceaccounts</code></td><td>모든 SA</td></tr>
+          <tr><td><code>system:serviceaccounts:dev</code></td><td><code>dev</code> 네임스페이스의 모든 SA</td></tr>
+          <tr><td><code>system:authenticated</code></td><td>인증에 성공한 모든 주체(익명 제외)</td></tr>
+          <tr><td><code>system:masters</code></td><td>kubeadm <code>admin.conf</code>의 그룹 — <b>RBAC을 우회</b>한다</td></tr>
+        </table>
+
+        <p><code>kubectl auth can-i</code>는 <b>그 주체로 실제 인가(authorization) 판단만</b> 합니다. 인증이 실패하는 상태(토큰 없음·만료)는 이 명령으로 보이지 않고 <code>401</code>로 드러납니다. <code>--as</code>는 impersonate 권한이 필요하지만, 클러스터 관리자·<code>admin.conf</code>로는 그대로 동작합니다.</p>
+
+        <pre><code># 파일로 선언한 RBAC 을 현재 상태에 맞추기 (없으면 생성, rules/subjects 는 맞춤)
+kubectl auth reconcile -f rbac.yaml --dry-run=server
+kubectl auth reconcile -f rbac.yaml</code></pre>
+      </div>
+    </details>
+
+    <details class="acc">
+      <summary><span class="num">3</span><span class="t">ServiceAccount — 토큰은 투영, 권한은 RBAC</span><span class="arrow">▾</span></summary>
+      <div class="acc-body">
+        <p>ServiceAccount는 <b>파드의 신원</b>이고, RBAC의 주체 이름은 <code>system:serviceaccount:&lt;ns&gt;:&lt;name&gt;</code>입니다. SA는 네임스페이스 스코프라 <b>다른 네임스페이스의 SA를 파드가 쓸 수 없습니다</b>.</p>
+
+        <table class="tbl tbl-cmp">
+          <colgroup><col class="c1"><col class="c2"><col class="c3"></colgroup>
+          <tr><th>항목</th><th>1.23 이하</th><th>1.24 이상</th></tr>
+          <tr><td>토큰 생성</td><td>SA마다 Secret 자동 생성, 파드에 영구 토큰</td><td><b>Secret 자동 생성 없음</b> — kubelet이 TokenRequest API로 투영</td></tr>
+          <tr><td>토큰 수명</td><td>사실상 무기한</td><td>만료 있음(기본 1h, kubelet이 갱신) · audience 바인딩</td></tr>
+          <tr><td>마운트 경로</td><td><code>/var/run/secrets/kubernetes.io/serviceaccount/</code></td><td>같은 경로(projected volume)</td></tr>
+        </table>
+
+        <pre><code>kubectl create sa app-sa -n app
+kubectl get sa app-sa -n app -o yaml
+
+# 단기 토큰 직접 발급 (기본 1h, 최소 10m) — 디버깅·외부 도구용
+kubectl create token app-sa -n app --duration=2h
+kubectl create token app-sa -n app --audience=https://api.example.com
+
+# 파드 안에서 토큰을 쓰지 않게 (API 접근이 없는 앱의 기본값)
+kubectl patch sa app-sa -n app -p '{"automountServiceAccountToken": false}'
+kubectl patch deploy web -p '{"spec":{"template":{"spec":{"automountServiceAccountToken": false}}}}'</code></pre>
+
+        <ul>
+          <li><code>automountServiceAccountToken</code>은 <b>SA와 Pod 양쪽</b>에 있고, <b>Pod 값이 우선</b>합니다. SA에서 끄고 필요한 파드만 켜는 편이 안전합니다.</li>
+          <li><code>imagePullSecrets</code>를 SA에 붙이면 그 SA를 쓰는 <b>모든 파드</b>가 자동으로 private 레지스트리를 당길 수 있습니다(Deployment마다 반복하지 않아도 됨).</li>
+          <li>오래 사는 토큰 Secret이 꼭 필요하면 <code>type: kubernetes.io/service-account-token</code> + annotation <code>kubernetes.io/service-account.name: app-sa</code>로 수동 생성합니다. 토큰 컨트롤러가 채워 줍니다.</li>
+        </ul>
+
+        <div class="callout"><b>401과 403을 구분</b> — 토큰이 없거나 만료·서명 불일치면 <b>401 Unauthorized</b>(인증 실패), 신원은 확인됐지만 RBAC 규칙이 없으면 <b>403 Forbidden</b>(인가 실패). <code>pods is forbidden: User "system:serviceaccount:app:app-sa" cannot list resource "pods"</code>는 <b>토큰은 정상이고 RoleBinding이 없다</b>는 뜻입니다.</div>
+      </div>
+    </details>
+
+    <details class="acc">
+      <summary><span class="num">4</span><span class="t">TLS 인증서 · kubeconfig · CSR 승인</span><span class="arrow">▾</span></summary>
+      <div class="acc-body">
+        <p>쿠버네티스의 사용자 인증은 대부분 <b>x509 클라이언트 인증서</b>입니다. 인증서의 <code>CN</code>이 <b>User</b>, <code>O</code>가 <b>Group</b>이 됩니다 — kubelet은 <code>CN=system:node:&lt;node&gt;</code>, <code>O=system:nodes</code>로 신원을 갖습니다.</p>
+
+        <table class="tbl tbl-key">
+          <colgroup><col class="k"><col></colgroup>
+          <tr><th>경로 (kubeadm)</th><th>용도</th></tr>
+          <tr><td><code>/etc/kubernetes/pki/<br>ca.crt·ca.key</code></td><td>클러스터 CA (10년). 이것이 만료되면 개별 인증서 renew로 해결되지 않음</td></tr>
+          <tr><td><code>apiserver.crt</code></td><td>apiserver 서빙 인증서(1년). SAN에 <code>kubernetes</code>·서비스 IP·노드 이름/IP가 들어가야 접속됨</td></tr>
+          <tr><td><code>apiserver-kubelet-client.crt</code></td><td>apiserver → kubelet 호출용 클라이언트 인증서</td></tr>
+          <tr><td><code>front-proxy-ca.crt</code></td><td>aggregation layer(metrics-server 등)용</td></tr>
+          <tr><td><code>etcd/server.crt</code> · <code>etcd/peer.crt</code></td><td>etcd 서빙·피어 인증서</td></tr>
+          <tr><td><code>sa.key</code> · <code>sa.pub</code></td><td>ServiceAccount 토큰 서명 키 — <b>인증서가 아니라 키 쌍</b></td></tr>
+          <tr><td><code>/etc/kubernetes/admin.conf</code></td><td>클러스터 관리자 kubeconfig(<code>system:masters</code>)</td></tr>
+        </table>
+
+        <h4>새 사용자 인증서 — CSR 승인 흐름</h4>
+        <pre><code># 1) 키·CSR 생성 (CN=사용자, O=그룹)
+openssl genrsa -out jane.key 2048
+openssl req -new -key jane.key -subj "/CN=jane/O=devs" -out jane.csr
+
+# 2) CertificateSigningRequest 오브젝트로 제출
+kubectl apply -f - &lt;&lt;EOF
+apiVersion: certificates.k8s.io/v1
+kind: CertificateSigningRequest
+metadata:
+  name: jane-csr
+spec:
+  request: $(cat jane.csr | base64 | tr -d '\n')
+  signerName: kubernetes.io/kube-apiserver-client
+  usages: ["client auth"]
+EOF
+
+# 3) 승인 → 서명된 인증서 회수
+kubectl get csr
+kubectl certificate approve jane-csr     # 거부는 kubectl certificate deny jane-csr
+kubectl get csr jane-csr -o jsonpath='{.status.certificate}' | base64 -d &gt; jane.crt
+
+# 4) kubeconfig 조립
+kubectl config set-cluster cka --server=https://172.30.1.10:6443 \
+  --certificate-authority=/etc/kubernetes/pki/ca.crt --embed-certs=true
+kubectl config set-credentials jane --client-certificate=jane.crt \
+  --client-key=jane.key --embed-certs=true
+kubectl config set-context jane --cluster=cka --user=jane
+kubectl --context=jane auth can-i --list</code></pre>
+
+        <p><code>signerName</code>은 <code>kubernetes.io/kube-apiserver-client</code>(사용자 클라이언트 인증서), <code>kubernetes.io/kubelet-serving</code>(kubelet 서빙) 둘 다 <b>수동 승인</b>이 필요합니다. 승인되지 않은 CSR은 <code>Pending</code>에 머물고, 서명은 kube-controller-manager의 csrsigning 컨트롤러가 CA 키로 수행합니다 — <b>CA 키를 직접 만질 필요가 없습니다</b>.</p>
+
+        <h4>만료 확인과 갱신</h4>
+        <pre><code>kubeadm certs check-expiration
+openssl x509 -in /etc/kubernetes/pki/apiserver.crt -noout -subject -issuer -dates
+
+# 만료 임박/만료 시
+kubeadm certs renew all
+kubeadm certs renew apiserver          # 개별 갱신도 가능
+
+# 컨트롤 플레인 정적 파드는 시작할 때 인증서를 읽는다 → 재시작 필요
+mv /etc/kubernetes/manifests/kube-apiserver.yaml /tmp/ && sleep 20
+mv /tmp/kube-apiserver.yaml /etc/kubernetes/manifests/</code></pre>
+
+        <p>노드 kubelet의 클라이언트 인증서는 <b>kubelet이 CSR API로 스스로 회전</b>합니다(<code>rotateCertificates: true</code>). kubeconfig은 <code>clusters</code>·<code>users</code>·<code>contexts</code>·<code>current-context</code> 구조이고, <code>KUBECONFIG</code>에 여러 파일을 콜론으로 이어 붙이면 병합됩니다(같은 이름은 <b>앞 파일 우선</b>).</p>
+      </div>
+    </details>
+
+    <details class="acc">
+      <summary><span class="num">5</span><span class="t">권한·인증 트러블슈팅 체크리스트</span><span class="arrow">▾</span></summary>
+      <div class="acc-body">
+        <pre><code># 누구로 인증됐고 무엇을 할 수 있나
+kubectl auth whoami
+kubectl config view --raw
+kubectl auth can-i --list -n dev --as=system:serviceaccount:dev:app-sa
+
+# RBAC 이 실제로 걸려 있나
+kubectl get role,rolebinding -n dev -o wide
+kubectl get clusterrolebinding -o wide | grep -i app-sa
+kubectl describe rolebinding dev-read -n dev
+
+# 인증서·CSR
+kubectl get csr
+kubeadm certs check-expiration</code></pre>
+
+        <table class="tbl tbl-key">
+          <colgroup><col class="k"><col></colgroup>
+          <tr><th>증상</th><th>원인과 조치</th></tr>
+          <tr><td><code>401 Unauthorized</code><br><code>You must be logged in</code></td><td>인증 실패 — 토큰 없음·만료, 잘못된 kubeconfig, CA 불일치. <code>kubectl config view --raw</code>, <code>kubectl create token</code></td></tr>
+          <tr><td><code>403 Forbidden</code><br><code>cannot list resource "pods"</code></td><td>인증은 성공, 인가 실패 — RoleBinding 없음·ns 불일치·verb/resource 불일치</td></tr>
+          <tr><td>분명히 binding 했는데 403</td><td>binding이 <b>다른 ns</b>에 있음(SA는 <code>app</code>, binding은 <code>default</code>), 또는 subject를 SA가 아닌 <b>User</b>로 넣음</td></tr>
+          <tr><td>권한을 회수했는데 아직 동작</td><td>authorizer 캐시로 <b>수 초</b> 지연. <code>system:masters</code>·<code>cluster-admin</code>이 붙어 있지 않은지 먼저 확인</td></tr>
+          <tr><td>roleRef 변경이 거부됨</td><td><code>cannot change roleRef</code> — binding 삭제 후 재생성</td></tr>
+          <tr><td>CSR이 <code>Pending</code></td><td>승인 대기 — <code>kubectl certificate approve &lt;name&gt;</code>. signerName usages 확인</td></tr>
+          <tr><td><code>x509: certificate has expired</code></td><td><b>인증 단계 실패</b> — RBAC 문제가 아님. <code>kubeadm certs renew all</code> + 정적 파드 재시작</td></tr>
+          <tr><td><code>error: Unable to connect ... certificate is valid for ...</code></td><td>apiserver 서빙 인증서 SAN에 접속 주소가 없음 — 인증서 재발급 또는 접속 주소 변경</td></tr>
+        </table>
+
+        <h4>시험 함정 체크리스트</h4>
+        <ul>
+          <li><b>권한 범위는 binding이 정한다</b> — RoleBinding+ClusterRole = 그 ns뿐</li>
+          <li>RoleBinding의 <code>roleRef</code>는 <b>immutable</b> — 지우고 다시</li>
+          <li>SA 주체는 <code>system:serviceaccount:&lt;ns&gt;:&lt;name&gt;</code>, subject에 <b>namespace 명시</b></li>
+          <li>토큰은 <b>신원</b>, 권한은 <b>RoleBinding</b> — 401은 토큰, 403은 RBAC</li>
+          <li>1.24+ 는 SA 토큰 Secret이 <b>자동 생성되지 않는다</b> — <code>kubectl create token</code></li>
+          <li>CSR은 <b>approve</b> 후 <code>status.certificate</code>를 base64 디코드해 쓴다</li>
+          <li>만료는 <code>kubeadm certs check-expiration</code> → <code>renew</code> → <b>정적 파드 재시작</b></li>
+          <li>네임스페이스 없는 리소스(nodes·pv·ns)는 <b>ClusterRole + ClusterRoleBinding</b></li>
+        </ul>
+      </div>
+    </details>
+  </section>
+
+  <!-- ===== 퀴즈 ===== -->
+  <section class="sec" id="quiz">
+    <div class="sec-head">
+      <h2>인터랙티브 퀴즈</h2>
+      <span class="hint">한 문항씩 · 고르면 바로 해설</span>
+    </div>
+
+    <div class="quiz-card" id="quizCard">
+      <div class="qtop">
+        <span class="qcount" id="qCount">1 / 5</span>
+        <span class="qtag" id="qTag">RBAC</span>
+      </div>
+      <div class="bar"><i id="bar"></i></div>
+
+      <h3 class="qtext" id="qText"></h3>
+      <div id="qCodeWrap"></div>
+      <div class="opts" id="opts"></div>
+
+      <div id="explainWrap"></div>
+
+      <div class="qfoot" id="footWrap" hidden>
+        <button class="next" id="nextBtn" type="button">다음 문제 →</button>
+      </div>
+    </div>
+
+    <div class="result" id="result" hidden>
+      <div class="ring" id="ring">
+        <div class="in">
+          <span class="score" id="scoreNum">0</span>
+          <span class="of" id="scoreOf">0 / 5</span>
+        </div>
+      </div>
+      <h3 class="res-title" id="resTitle">결과</h3>
+      <p class="res-sub" id="resSub"></p>
+
+      <div class="tally">
+        <div><span class="n g" id="tRight">0</span><span class="l">정답</span></div>
+        <div><span class="n r" id="tWrong">0</span><span class="l">오답</span></div>
+        <div><span class="n" id="tScore">0점</span><span class="l">환산 점수</span></div>
+      </div>
+
+      <div class="rev-head">문제별 정오표</div>
+      <div id="revList"></div>
+
+      <div class="actions">
+        <button class="btn primary" id="retryWrong" type="button">오답만 다시 풀기</button>
+        <button class="btn dark" id="retryAll" type="button">전체 다시 풀기</button>
+        <a class="btn ghost" href="./index.html" style="width:100%;min-height:54px">대시보드로</a>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Day 06 · Cluster Architecture — RBAC / ServiceAccount / TLS 인증서<br>
+    CKA Daily Study · <a href="./index.html">전체 회차 보기</a>
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var QS = [
+    {
+      n: 1,
+      tag: "RBAC · 범위",
+      q: "네임스페이스 `dev` 의 ServiceAccount `app-sa` 에 내장 ClusterRole `view` 를 RoleBinding 으로 묶었다. 아래 두 검증의 결과로 옳은 것은?",
+      code:
+        "# ClusterRole view = 네임스페이스 리소스 읽기 규칙(내장)\n" +
+        "kubectl create rolebinding dev-view -n dev --clusterrole=view --serviceaccount=dev:app-sa\n" +
+        "\n" +
+        "kubectl auth can-i list pods -n dev  --as=system:serviceaccount:dev:app-sa   # ?\n" +
+        "kubectl auth can-i list pods -n prod --as=system:serviceaccount:dev:app-sa   # ?",
+      opts: [
+        { t: "둘 다 `yes` — ClusterRole 을 참조했으므로 클러스터 전체 권한이 생긴다" },
+        { t: "`dev` 는 yes, `prod` 는 no — 권한 범위는 role 이 아니라 **binding** 이 정한다. RoleBinding 은 자기 네임스페이스에만 부여하고, `prod` 까지 주려면 `prod` 에 RoleBinding 을 하나 더 만들거나 ClusterRoleBinding 을 쓴다" },
+        { t: "둘 다 `no` — ServiceAccount 는 RoleBinding 의 주체가 될 수 없고 User·Group 만 가능하다" },
+        { t: "`dev` 는 yes, `prod` 는 no — ServiceAccount 가 `system:authenticated` 그룹에 자동 포함되지만 `view` 규칙은 상속되지 않기 때문이다" }
+      ],
+      answer: 1,
+      why: "ClusterRole 은 '규칙의 묶음'이고, 그 규칙이 <b>어디에</b> 적용될지는 binding 의 종류가 정합니다. RoleBinding + ClusterRole 조합은 **binding 이 있는 네임스페이스 안에서만** 규칙을 부여합니다(`dev` 는 yes, `prod` 는 no). ClusterRoleBinding 이어야 모든 네임스페이스와 nodes·pv 같은 클러스터 스코프 리소스까지 적용됩니다. 내장 `view`·`edit`·`admin` 이 ClusterRole 인데도 RoleBinding 으로 쓰는 것이 권장되는 이유가 바로 이것입니다 — 여러 팀 네임스페이스에 같은 규칙 묶음을 재사용하면서 범위는 좁게 유지합니다. ServiceAccount 는 RoleBinding 의 정식 주체이고(`kind: ServiceAccount` + `namespace`), `system:authenticated` 소속은 인증 여부일 뿐 `view` 규칙과는 무관합니다.",
+      whyCode:
+        "kubectl auth can-i list pods -n dev  --as=system:serviceaccount:dev:app-sa\n" +
+        "# yes\n" +
+        "kubectl auth can-i list pods -n prod --as=system:serviceaccount:dev:app-sa\n" +
+        "# no\n" +
+        "\n" +
+        "# prod 에도 읽기 권한이 필요하면\n" +
+        "kubectl create rolebinding prod-view -n prod --clusterrole=view --serviceaccount=dev:app-sa\n" +
+        "\n" +
+        "# 반대로 전 클러스터가 필요하면 (nodes 등 포함)\n" +
+        "kubectl create clusterrolebinding app-view-all --clusterrole=view --serviceaccount=dev:app-sa"
+    },
+    {
+      n: 2,
+      tag: "RoleBinding · roleRef",
+      q: "`dev` 네임스페이스의 RoleBinding `read-pods` 가 ClusterRole `view` 를 가리키고 있다. 이를 `edit` 로 바꾸려고 아래 patch 를 실행했더니 `roleRef: Invalid value: ... cannot change roleRef` 로 거부됐다. 가장 적절한 조치는?",
+      code:
+        "kubectl get rolebinding read-pods -n dev -o yaml\n" +
+        "# roleRef:\n" +
+        "#   apiGroup: rbac.authorization.k8s.io\n" +
+        "#   kind: ClusterRole\n" +
+        "#   name: view\n" +
+        "\n" +
+        "kubectl patch rolebinding read-pods -n dev --type=merge \\\n" +
+        "  -p '{\"roleRef\":{\"apiGroup\":\"rbac.authorization.k8s.io\",\"kind\":\"ClusterRole\",\"name\":\"edit\"}}'\n" +
+        "# The RoleBinding \"read-pods\" is invalid: roleRef: Invalid value: ...: cannot change roleRef",
+      opts: [
+        { t: "roleRef 는 생성 후 변경할 수 없다 — binding 을 지우고 `edit` 를 가리키는 RoleBinding 을 다시 만든다" },
+        { t: "`kubectl patch --type=json` 으로 `/roleRef/name` 을 replace 하면 roleRef 검증을 우회할 수 있다" },
+        { t: "`kubectl auth reconcile -f` 로 파일을 적용하면 roleRef 도 새 값으로 맞춰 준다" },
+        { t: "`subjects` 를 먼저 비우고 roleRef 를 바꾼 뒤 다시 채우면 된다" }
+      ],
+      answer: 0,
+      why: "`roleRef` 는 **immutable** 입니다. 이 제약이 없으면 binding 을 가진 사람이 roleRef 만 바꿔 자기 권한을 올릴 수 있기 때문입니다(권한 상승 방지). 따라서 merge patch·json patch·apply 어느 방법으로도 바꿀 수 없고, **삭제 후 재생성**이 유일한 방법입니다. `kubectl auth reconcile` 은 선언 파일과 현재 상태를 맞추는 도구지만 roleRef 변경에는 쓰지 않습니다. subjects 를 비우는 순서를 바꿔도 같은 검증에 막히고, 권한을 잠깐 잃기만 합니다.",
+      whyCode:
+        "kubectl delete rolebinding read-pods -n dev\n" +
+        "kubectl create rolebinding read-pods -n dev --clusterrole=edit --serviceaccount=dev:app-sa\n" +
+        "\n" +
+        "kubectl describe rolebinding read-pods -n dev\n" +
+        "kubectl auth can-i update pods -n dev --as=system:serviceaccount:dev:app-sa\n" +
+        "# yes\n" +
+        "\n" +
+        "# 선언 파일로 관리한다면 roleRef 를 고친 뒤\n" +
+        "kubectl apply -f rbac.yaml"
+    },
+    {
+      n: 3,
+      tag: "ServiceAccount · RBAC",
+      q: "`app` 네임스페이스의 SA `app-sa` 로 도는 파드가 client-go 로 pods 를 list 하다가 `pods is forbidden: User \"system:serviceaccount:app:app-sa\" cannot list resource \"pods\" in API group \"\" in the namespace \"app\"` 를 받았다. Role `pod-reader` 는 이미 만들었고, 파드 안에는 토큰이 정상 마운트되어 있다. 다음 조치로 가장 정확한 것은?",
+      code:
+        "kubectl -n app get sa,role,rolebinding\n" +
+        "# serviceaccount/app-sa      12m\n" +
+        "# role.rbac.../pod-reader   12m\n" +
+        "# (rolebinding 없음)\n" +
+        "\n" +
+        "kubectl -n app logs job-collector\n" +
+        "# pods is forbidden: User \"system:serviceaccount:app:app-sa\"\n" +
+        "# cannot list resource \"pods\" in API group \"\" in the namespace \"app\"",
+      opts: [
+        { t: "`kubectl create rolebinding pod-reader -n app --role=pod-reader --serviceaccount=app:app-sa` 로 Role 을 SA 에 묶는다" },
+        { t: "`kubectl create token app-sa -n app` 으로 새 토큰을 발급해 파드에 다시 넣는다" },
+        { t: "Role 을 ClusterRole 로 바꾸고 ClusterRoleBinding 을 만든다 — 네임스페이스 리소스에는 이 방법만 동작한다" },
+        { t: "파드 spec 에 `automountServiceAccountToken: true` 를 명시한다" }
+      ],
+      answer: 0,
+      why: "403 Forbidden 은 **인증은 성공했지만 인가 규칙이 없다**는 뜻이고, 메시지에 `system:serviceaccount:app:app-sa` 라고 주체가 찍혀 있으니 토큰은 정상입니다. Role 은 규칙일 뿐이고 **누구에게 줄지는 binding** 이 정합니다 — Role 과 같은 네임스페이스에 subject `ServiceAccount app/app-sa` 인 RoleBinding 이 필요합니다. 새 토큰을 발급해도 권한은 생기지 않고(토큰은 신원 증명일 뿐), 네임스페이스 리소스는 Role+RoleBinding 으로 충분하므로 ClusterRoleBinding 은 과한 권한입니다. `automountServiceAccountToken` 은 토큰을 마운트할지 여부라 401 쪽 문제를 다룰 때 보는 값이고, SA 기본값이 이미 true 입니다.",
+      whyCode:
+        "kubectl create rolebinding app-pod-reader -n app --role=pod-reader --serviceaccount=app:app-sa\n" +
+        "\n" +
+        "kubectl auth can-i list pods -n app --as=system:serviceaccount:app:app-sa\n" +
+        "# yes\n" +
+        "kubectl auth can-i --list -n app --as=system:serviceaccount:app:app-sa\n" +
+        "\n" +
+        "# binding 이 엉뚱한 ns 에 있지 않은지 확인 (SA 와 같은 ns 여야 함)\n" +
+        "kubectl get rolebinding -A -o wide | grep app-sa"
+    },
+    {
+      n: 4,
+      tag: "CSR · kubeconfig",
+      q: "신규 개발자 `jane` 의 클라이언트 인증서를 CSR 오브젝트로 제출했고 `kubectl get csr` 에 `Pending` 으로 보인다. 서명된 인증서를 받아 kubeconfig 을 만드는 순서로 가장 정확한 것은?",
+      code:
+        "kubectl get csr\n" +
+        "# NAME       AGE   SIGNERNAME                            REQUESTOR   CONDITION\n" +
+        "# jane-csr   2m    kubernetes.io/kube-apiserver-client   admin       Pending",
+      opts: [
+        { t: "CA 개인키로 직접 `openssl x509 -req` 서명을 해야 한다 — kubectl 에는 승인 기능이 없다" },
+        { t: "`kubectl certificate approve jane-csr` 로 승인하고, `status.certificate` 를 base64 디코드해 인증서를 꺼낸 뒤 `kubectl config set-credentials/set-context` 로 kubeconfig 을 조립한다" },
+        { t: "CSR 을 `kubectl apply` 로 한 번 더 적용하면 자동 승인된다" },
+        { t: "`kubectl auth can-i --as=jane` 을 실행하면 인증서가 자동 발급된다" }
+      ],
+      answer: 1,
+      why: "CSR 은 **요청**이고, 승인은 `kubectl certificate approve <name>`(거부는 `certificate deny`)입니다. 승인되면 kube-controller-manager 의 csrsigning 컨트롤러가 클러스터 CA 로 서명해 `status.certificate` 에 base64 PEM 을 채우고, 그것을 `base64 -d` 로 꺼내 인증서 파일로 씁니다. `signerName: kubernetes.io/kube-apiserver-client` + `usages: [\"client auth\"]` 조합이 사용자 클라이언트 인증서의 표준입니다. CA 키를 직접 다룰 필요가 없고(오히려 컨트롤 플레인 밖으로 꺼내는 것이 위험), 재적용은 승인과 무관하게 같은 Pending 상태를 유지합니다. `kubectl auth can-i` 는 인가 판단 도구라 인증서를 발급하지 않습니다.",
+      whyCode:
+        "kubectl certificate approve jane-csr\n" +
+        "kubectl get csr jane-csr\n" +
+        "# CONDITION: Approved,Issued\n" +
+        "\n" +
+        "kubectl get csr jane-csr -o jsonpath='{.status.certificate}' | base64 -d > jane.crt\n" +
+        "openssl x509 -in jane.crt -noout -subject -issuer -dates\n" +
+        "# subject=O = devs, CN = jane\n" +
+        "\n" +
+        "kubectl config set-credentials jane --client-certificate=jane.crt --client-key=jane.key --embed-certs=true\n" +
+        "kubectl config set-context jane --cluster=kubernetes --user=jane\n" +
+        "kubectl --context=jane auth can-i --list"
+    },
+    {
+      n: 5,
+      tag: "인증서 만료",
+      q: "kubeadm 으로 만든 클러스터에서 어제까지 잘 되던 `kubectl get nodes` 가 아래 오류로 실패한다. 원인 진단과 복구 순서로 가장 적절한 것은?",
+      code:
+        "kubectl get nodes\n" +
+        "# Unable to connect to the server: x509: certificate has expired\n" +
+        "# or is not yet valid: current time 2026-11-24T08:12:00+09:00\n" +
+        "# is after 2026-11-24T00:05:00Z\n" +
+        "\n" +
+        "kubeadm certs check-expiration\n" +
+        "# CERTIFICATE        EXPIRES                RESIDUAL TIME\n" +
+        "# apiserver          Nov 24, 2026 09:05 UTC  <invalid>",
+      opts: [
+        { t: "`kubectl delete csr --all` 로 만료된 CSR 을 정리한 뒤 다시 시도한다" },
+        { t: "`kubectl auth can-i` 로 RBAC 규칙을 다시 확인하고 RoleBinding 을 재생성한다" },
+        { t: "`kubeadm certs renew all` 로 갱신하고, 인증서를 시작 시 읽는 kube-apiserver·controller-manager·scheduler 정적 파드를 재시작한다" },
+        { t: "`system:masters` 그룹에 사용자를 추가하면 만료된 인증서로도 접속할 수 있다" }
+      ],
+      answer: 2,
+      why: "`x509: certificate has expired` 는 **인증 단계의 실패**라 RBAC(403)와 원인 계층이 다릅니다. `kubeadm certs check-expiration` 으로 RESIDUAL TIME 이 `<invalid>` 인 인증서를 확인하고 `kubeadm certs renew all`(또는 `renew apiserver` 처럼 개별)로 갱신합니다. 컨트롤 플레인 정적 파드는 **시작할 때 인증서를 읽으므로** 매니페스트를 잠깐 옮겼다 되돌리는 식으로 재시작해야 새 인증서가 반영됩니다. CSR 정리나 RBAC 재생성은 이 오류와 무관하고, `system:masters` 도 만료된 인증서를 유효하게 만들지 못합니다(인증서 검증이 먼저 실패). 참고로 CA(`ca.crt`, 10년)까지 만료되면 `renew` 로 해결되지 않고 CA 재발급 절차가 필요합니다.",
+      whyCode:
+        "kubeadm certs check-expiration\n" +
+        "openssl x509 -in /etc/kubernetes/pki/apiserver.crt -noout -subject -issuer -dates\n" +
+        "\n" +
+        "kubeadm certs renew all\n" +
+        "\n" +
+        "# 정적 파드 재시작 (kube-apiserver / controller-manager / scheduler)\n" +
+        "mv /etc/kubernetes/manifests/kube-apiserver.yaml /tmp/ && sleep 20\n" +
+        "mv /tmp/kube-apiserver.yaml /etc/kubernetes/manifests/\n" +
+        "\n" +
+        "systemctl restart kubelet      # kubelet 클라이언트 인증서는 CSR 로 자동 회전\n" +
+        "kubectl get nodes"
+    }
+  ];
+
+  var LETTER = ["A", "B", "C", "D", "E"];
+  var queue = [];
+  var idx = 0;
+  var picks = {};
+
+  var el = {
+    quizCard: document.getElementById("quizCard"),
+    qCount: document.getElementById("qCount"),
+    qTag: document.getElementById("qTag"),
+    bar: document.getElementById("bar"),
+    qText: document.getElementById("qText"),
+    qCodeWrap: document.getElementById("qCodeWrap"),
+    opts: document.getElementById("opts"),
+    explainWrap: document.getElementById("explainWrap"),
+    footWrap: document.getElementById("footWrap"),
+    nextBtn: document.getElementById("nextBtn"),
+    result: document.getElementById("result"),
+    ring: document.getElementById("ring"),
+    scoreNum: document.getElementById("scoreNum"),
+    scoreOf: document.getElementById("scoreOf"),
+    resTitle: document.getElementById("resTitle"),
+    resSub: document.getElementById("resSub"),
+    tRight: document.getElementById("tRight"),
+    tWrong: document.getElementById("tWrong"),
+    tScore: document.getElementById("tScore"),
+    revList: document.getElementById("revList"),
+    retryWrong: document.getElementById("retryWrong"),
+    retryAll: document.getElementById("retryAll")
+  };
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  function md(s) {
+    var out = esc(s);
+    out = out.replace(/&lt;b&gt;/g, "<b>").replace(/&lt;\/b&gt;/g, "</b>");
+    out = out.replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
+    return out.replace(/`([^`]+)`/g, function (m, code) {
+      return "<code>" + code + "</code>";
+    });
+  }
+
+  function byId(n) {
+    for (var i = 0; i < QS.length; i++) { if (QS[i].n === n) { return QS[i]; } }
+    return null;
+  }
+
+  function start(ids) {
+    queue = ids.slice();
+    idx = 0;
+    picks = {};
+    el.result.hidden = true;
+    el.quizCard.hidden = false;
+    render();
+    el.quizCard.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function render() {
+    var q = byId(queue[idx]);
+    var picked = picks[q.n];
+    var answered = typeof picked === "number";
+
+    el.qCount.textContent = (idx + 1) + " / " + queue.length;
+    el.qTag.textContent = q.tag + " · Q" + q.n;
+    el.bar.style.width = (((idx + 1) / queue.length) * 100) + "%";
+    el.qText.innerHTML = md(q.q);
+    el.qCodeWrap.innerHTML = q.code ? "<pre><code>" + esc(q.code) + "</code></pre>" : "";
+
+    var html = "";
+    for (var i = 0; i < q.opts.length; i++) {
+      html += "<button class=\"opt\" type=\"button\" data-i=\"" + i + "\">" +
+        "<span class=\"k\">" + LETTER[i] + "</span>" +
+        "<span class=\"txt\">" + md(q.opts[i].t) + "</span>" +
+        "<span class=\"mk\"></span></button>";
+    }
+    el.opts.innerHTML = html;
+    el.opts.className = "opts";
+
+    if (answered) {
+      paint(q, picked);
+    } else {
+      el.explainWrap.innerHTML = "";
+      el.footWrap.hidden = true;
+    }
+  }
+
+  function paint(q, picked) {
+    var nodes = el.opts.querySelectorAll(".opt");
+    for (var i = 0; i < nodes.length; i++) {
+      var b = nodes[i];
+      b.classList.remove("correct", "wrong", "dim");
+      var mk = b.querySelector(".mk");
+      if (i === q.answer) {
+        b.classList.add("correct");
+        if (mk) { mk.textContent = "✓"; }
+      } else if (i === picked) {
+        b.classList.add("wrong");
+        if (mk) { mk.textContent = "✕"; }
+      } else {
+        b.classList.add("dim");
+      }
+    }
+    el.opts.classList.add("locked");
+
+    var ok = picked === q.answer;
+    var ex = "<div class=\"explain\">" +
+      "<div class=\"verdict " + (ok ? "ok" : "no") + "\">" +
+      (ok ? "✓ 정답입니다" : "✕ 오답 — 정답은 " + LETTER[q.answer]) +
+      "</div>" +
+      "<p>" + md(q.why) + "</p>";
+    if (q.whyCode) {
+      ex += "<div class=\"lbl\">명령 흐름</div><pre><code>" + esc(q.whyCode) + "</code></pre>";
+    }
+    ex += "</div>";
+    el.explainWrap.innerHTML = ex;
+
+    el.footWrap.hidden = false;
+    el.nextBtn.textContent = (idx + 1 < queue.length) ? "다음 문제 →" : "결과 보기 →";
+  }
+
+  el.opts.addEventListener("click", function (ev) {
+    var btn = ev.target.closest(".opt");
+    if (!btn) { return; }
+    var q = byId(queue[idx]);
+    if (typeof picks[q.n] === "number") { return; }
+    var i = parseInt(btn.getAttribute("data-i"), 10);
+    picks[q.n] = i;
+    paint(q, i);
+    setTimeout(function () {
+      if (el.footWrap.hidden) { return; }
+      el.footWrap.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, 90);
+  });
+
+  el.nextBtn.addEventListener("click", function () {
+    if (idx + 1 < queue.length) {
+      idx += 1;
+      render();
+      el.quizCard.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else {
+      showResult();
+    }
+  });
+
+  function showResult() {
+    var total = queue.length;
+    var right = 0;
+    for (var i = 0; i < queue.length; i++) {
+      var q = byId(queue[i]);
+      if (picks[q.n] === q.answer) { right += 1; }
+    }
+    var wrong = total - right;
+    var score = Math.round((right / total) * 100);
+
+    el.quizCard.hidden = true;
+    el.result.hidden = false;
+
+    el.scoreNum.textContent = score;
+    el.scoreOf.textContent = right + " / " + total;
+    var deg = (score / 100) * 360;
+    var color = score >= 80 ? "#39d3a2" : (score >= 60 ? "#ffc457" : "#ff6b6b");
+    el.scoreNum.style.color = color;
+    el.ring.style.background = "conic-gradient(" + color + " 0deg, " + color + " " + deg + "deg, #1c2735 " + deg + "deg)";
+
+    el.tRight.textContent = String(right);
+    el.tWrong.textContent = String(wrong);
+    el.tScore.textContent = score + "점";
+
+    if (score === 100) {
+      el.resTitle.textContent = "만점입니다 🎯";
+      el.resSub.textContent = "권한·인증 감각이 잡혔습니다. 내일은 Troubleshooting(Node NotReady·Pending·CrashLoopBackOff) 회차입니다.";
+    } else if (score >= 80) {
+      el.resTitle.textContent = "합격선 통과 (" + score + "점)";
+      el.resSub.textContent = "CKA 합격선 66%를 넘었습니다. 틀린 " + wrong + "문항만 정리하면 충분합니다.";
+    } else if (score >= 60) {
+      el.resTitle.textContent = "조금만 더 (" + score + "점)";
+      el.resSub.textContent = "합격선 66% 근처입니다. 오답 " + wrong + "문항의 해설을 한 번 더 읽어 보세요.";
+    } else {
+      el.resTitle.textContent = "다시 한 번 (" + score + "점)";
+      el.resSub.textContent = "이론 1·4번(RBAC 범위, CSR 승인)을 먼저 펼쳐 보고 오답만 다시 풀어 보세요.";
+    }
+
+    var html = "";
+    for (var j = 0; j < queue.length; j++) {
+      var qq = byId(queue[j]);
+      var p = picks[qq.n];
+      var good = p === qq.answer;
+      html += "<div class=\"rev " + (good ? "ok" : "no") + "\">" +
+        "<div class=\"rev-top\">" +
+        "<span class=\"rev-no\">Q" + qq.n + "</span>" +
+        "<span class=\"" + (good ? "mark-ok" : "mark-no") + "\">" + (good ? "정답" : "오답") + "</span>" +
+        "</div>" +
+        "<p class=\"rev-q\">" + md(qq.q) + "</p>" +
+        "<p class=\"rev-ans\">내 답 <b>" + (typeof p === "number" ? LETTER[p] : "-") + "</b> · 정답 <b>" + LETTER[qq.answer] + "</b></p>";
+      if (!good) {
+        html += "<div class=\"rev-why\"><span class=\"lbl\">오답 풀이</span>" + md(qq.why) + "</div>";
+      }
+      html += "</div>";
+    }
+    el.revList.innerHTML = html;
+
+    el.retryWrong.style.display = wrong > 0 ? "" : "none";
+    el.retryWrong.textContent = "오답만 다시 풀기 (" + wrong + "문항)";
+
+    el.result.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  el.retryWrong.addEventListener("click", function () {
+    var ids = [];
+    for (var i = 0; i < queue.length; i++) {
+      var q = byId(queue[i]);
+      if (picks[q.n] !== q.answer) { ids.push(q.n); }
+    }
+    if (!ids.length) { return; }
+    start(ids);
+  });
+
+  el.retryAll.addEventListener("click", function () {
+    var ids = [];
+    for (var i = 0; i < QS.length; i++) { ids.push(QS[i].n); }
+    start(ids);
+  });
+
+  // 시작
+  var all = [];
+  for (var i = 0; i < QS.length; i++) { all.push(QS[i].n); }
+  start(all);
+})();
+</script>
+</body>
+</html>
