@@ -350,7 +350,7 @@ roleRef:                    # 한 번 만들면 변경 불가
         <pre><code># 1) 규칙(role/clusterrole)
 kubectl create role pod-reader --verb=get,list,watch --resource=pods -n dev
 kubectl create clusterrole node-viewer --verb=get,list,watch --resource=nodes
-kubectl create clusterrole secret-none --verb="" --resource=secrets     # 권한 없음 규칙
+kubectl create clusterrole pv-reader --verb=get,list --resource=persistentvolumes   # 클러스터 스코프
 
 # 2) 부여(binding)
 kubectl create rolebinding dev-read --clusterrole=view --serviceaccount=dev:app-sa -n dev
