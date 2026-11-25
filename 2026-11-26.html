@@ -855,6 +855,7 @@ kubectl get networkpolicy -A</code></pre>
   function md(s) {
     var out = esc(s);
     out = out.replace(/&lt;b&gt;/g, "<b>").replace(/&lt;\/b&gt;/g, "</b>");
+    out = out.replace(/&lt;code&gt;/g, "<code>").replace(/&lt;\/code&gt;/g, "</code>");
     out = out.replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
     return out.replace(/`([^`]+)`/g, function (m, code) {
       return "<code>" + code + "</code>";
