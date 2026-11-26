@@ -312,8 +312,8 @@
           <tr><th>필드</th><th>기본값 · 규칙</th></tr>
           <tr><td><code>periodSeconds</code></td><td><b>10</b> — 검사 주기</td></tr>
           <tr><td><code>timeoutSeconds</code></td><td><b>1</b> — 응답 대기. 앱이 느리면 여기서 먼저 깨진다</td></tr>
-          <tr><td><code>failureThreshold</code></td><td><b>3</b> — 이 횟수만큼 연속 실패해야 실패로 판정</td></tr>
-          <tr><td><code>successThreshold</code></td><td><b>1</b> — liveness·startup 은 <b>1 만 허용</b>(API 검증). readiness 만 2 이상 가능</td></tr>
+          <tr><td><code>failure<br class="mb">Threshold</code></td><td><b>3</b> — 이 횟수만큼 연속 실패해야 실패로 판정</td></tr>
+          <tr><td><code>success<br class="mb">Threshold</code></td><td><b>1</b> — liveness·startup 은 <b>1 만 허용</b>(API 검증). readiness 만 2 이상 가능</td></tr>
           <tr><td><code>initialDelay<br class="mb">Seconds</code></td><td><b>0</b> — 첫 검사까지 대기. startupProbe 가 있으면 사실상 불필요</td></tr>
         </table>
         <div class="callout"><b>startup 예산</b> = <code>initialDelaySeconds + periodSeconds × failureThreshold</code>. 예) 10초 주기 · 18회 → 최대 <b>180초</b>까지 기다린 뒤에야 포기합니다.</div>
