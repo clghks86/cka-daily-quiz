@@ -314,7 +314,7 @@
           <tr><td><code>timeoutSeconds</code></td><td><b>1</b> — 응답 대기. 앱이 느리면 여기서 먼저 깨진다</td></tr>
           <tr><td><code>failureThreshold</code></td><td><b>3</b> — 이 횟수만큼 연속 실패해야 실패로 판정</td></tr>
           <tr><td><code>successThreshold</code></td><td><b>1</b> — liveness·startup 은 <b>1 만 허용</b>(API 검증). readiness 만 2 이상 가능</td></tr>
-          <tr><td><code>initialDelaySeconds</code></td><td><b>0</b> — 첫 검사까지 대기. startupProbe 가 있으면 사실상 불필요</td></tr>
+          <tr><td><code>initialDelay<br class="mb">Seconds</code></td><td><b>0</b> — 첫 검사까지 대기. startupProbe 가 있으면 사실상 불필요</td></tr>
         </table>
         <div class="callout"><b>startup 예산</b> = <code>initialDelaySeconds + periodSeconds × failureThreshold</code>. 예) 10초 주기 · 18회 → 최대 <b>180초</b>까지 기다린 뒤에야 포기합니다.</div>
 
@@ -526,10 +526,10 @@ spec:
           <colgroup><col class="k"><col></colgroup>
           <tr><th>필드</th><th>동작</th></tr>
           <tr><td><code>backoffLimit</code></td><td><b>재시도 횟수</b>(기본 6). 실패 파드가 남아 있으면 새 파드를 만들고, 간격은 10s → 20s → 40s … <b>최대 6분</b>까지 늘어난다</td></tr>
-          <tr><td><code>activeDeadlineSeconds</code></td><td>Job 전체 수명 상한. 넘기면 실행 중 파드를 종료하고 <b>실패</b>로 표시(backoffLimit 보다 우선)</td></tr>
-          <tr><td><code>ttlSecondsAfterFinished</code></td><td>완료 후 자동 삭제. 없으면 <code>kubectl delete job</code> 로 직접 정리해야 하고, 남은 Job 이 <b>etcd 를 계속 차지</b>한다</td></tr>
+          <tr><td><code>activeDeadline<br class="mb">Seconds</code></td><td>Job 전체 수명 상한. 넘기면 실행 중 파드를 종료하고 <b>실패</b>로 표시(backoffLimit 보다 우선)</td></tr>
+          <tr><td><code>ttlSecondsAfter<br class="mb">Finished</code></td><td>완료 후 자동 삭제. 없으면 <code>kubectl delete job</code> 로 직접 정리해야 하고, 남은 Job 이 <b>etcd 를 계속 차지</b>한다</td></tr>
           <tr><td><code>completionMode</code></td><td><code>NonIndexed</code>(기본) / <code>Indexed</code> — Indexed 면 파드마다 <code>JOB_COMPLETION_INDEX</code> 0..N−1</td></tr>
-          <tr><td><code>podFailurePolicy</code></td><td>exit code 별로 <b>재시도/즉시 실패/Ignore</b> 를 지정(영구 오류에서 재시도 낭비 방지)</td></tr>
+          <tr><td><code>podFailure<br class="mb">Policy</code></td><td>exit code 별로 <b>재시도/즉시 실패/Ignore</b> 를 지정(영구 오류에서 재시도 낭비 방지)</td></tr>
         </table>
 
         <pre><code>apiVersion: batch/v1
