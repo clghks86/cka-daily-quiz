@@ -395,7 +395,7 @@ spec:
           <colgroup><col class="c1"><col class="c2"><col class="c3"></colgroup>
           <tr><th>항목</th><th>minAvailable</th><th>maxUnavailable</th></tr>
           <tr><td>의미</td><td>중단 후에도 <b>남아 있어야 하는 최소 개수</b></td><td>동시에 <b>내려가도 되는 최대 개수</b></td></tr>
-          <tr><td>예산 계산</td><td><code>현재 Healthy − minAvailable</code></td><td><code>maxUnavailable</code> 그대로</td></tr>
+          <tr><td>예산 계산</td><td><code>현재 Healthy − minAvailable</code></td><td><code>max<br class="mb">Unavailable</code> 그대로</td></tr>
           <tr><td>백분율</td><td><b>올림</b> (7개에 50% → 4개 보장)</td><td><b>올림</b> — 실제 중단이 선언값을 <b>넘을 수 있다</b></td></tr>
           <tr><td>쓰는 곳</td><td>quorum(etcd·ZooKeeper), 단일 인스턴스</td><td>replica 수가 변하는 무상태 서비스</td></tr>
         </table>
